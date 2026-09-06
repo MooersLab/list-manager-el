@@ -1,15 +1,54 @@
-;;; insert-checked.el --- Insert [\checked] after list item markers -*- lexical-binding: t; -*-
+;;; list-manager.el --- Manage lists in org-mode and LaTeX -*- lexical-binding: t; -*-
 
-;; Author: Blaine Mooers
-;; Version: 1.0
-;; Keywords: convenience, lists, latex, org
+;; Copyright (C) 2026 Blaine Mooers
+
+;; Author: Blaine Mooers <blaine-mooers@ou.edu>
+;; Maintainer: Blaine Mooers <blaine-mooers@ou.edu>
+;; Version: 1.0.0
+;; Package-Requires: ((emacs "26.1"))
+;; Keywords: convenience, tools, tex, wp
+;; URL: https://github.com/MooersLab/list-manager
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
-;; This package provides functions to manage lists in org-mode and LaTeX.
+;; List Manager provides interactive commands to create and convert lists
+;; across the formats used in org-mode and LaTeX writing workflows:
 ;;
+;; - org-mode dash, plus, and asterisk lists
+;; - org-mode checklists (- [ ] / - [X])
+;; - org-mode TODO/DONE headlines
+;; - numbered lists
+;; - LaTeX \item lists and complete itemize/enumerate environments
+;; - plain lines and comma-separated values
+;;
+;; It also extracts, cuts, and carries forward unchecked checklist items,
+;; and repairs LaTeX list formatting stripped by external tools such as
+;; 750words.
+;;
+;; Most commands operate on the active region.  The commands are gathered
+;; under the prefix key C-c x via the `list-manager-map' keymap.  See the
+;; accompanying README and Info manual for a full command reference.
 
 ;;; Code:
+
+(require 'org)
+(require 'cl-lib)
+(require 'subr-x)
 
 
 (defun list-manager-unwrap-to-one-sentence-per-line (&optional beg end)
@@ -85,7 +124,9 @@ separated by a single space are still detected; abbreviations such as
 ;; Enhanced version with more options
 (defun list-manager-org-dash-list-to-latex-items-enhanced (item-format)
   "Convert org-mode dash list to LaTeX items with custom formatting.
-ITEM-FORMAT should be a string like '\\\\item' or '\\\\item \\\\textbf{%s}'."
+ITEM-FORMAT should be a string like \"\\\\item\" or
+\"\\\\item \\\\textbf{%s}\".  A literal %s in ITEM-FORMAT is replaced by
+the item content; when absent, the content is appended after a space."
   (interactive "sItem format (use %s for content): ")
   (let ((start (if (use-region-p) (region-beginning) (point-min)))
         (end (if (use-region-p) (region-end) (point-max)))
@@ -93,12 +134,15 @@ ITEM-FORMAT should be a string like '\\\\item' or '\\\\item \\\\textbf{%s}'."
                         item-format
                       (concat item-format " %s"))))
     (save-excursion
-      (goto-char start)
-      (while (re-search-forward "^\\s-*- \\(.*\\)$" end t)
-        (let* ((content (match-string 1))
-               (replacement (format format-str content)))
-          (replace-match (concat "    " replacement))
-          (setq end (+ end (- (length replacement) (length content) 1))))))))
+      (save-restriction
+        (narrow-to-region start end)
+        (goto-char (point-min))
+        (while (re-search-forward "^\\s-*- \\(.*\\)$" nil t)
+          (let* ((content (match-string 1))
+                 (replacement (format format-str content)))
+            ;; Pass LITERAL so backslashes in the format (e.g. \item) are
+            ;; inserted verbatim rather than interpreted by `replace-match'.
+            (replace-match (concat "    " replacement) t t)))))))
 
 
 ;; Convert with full LaTeX environment wrapper
@@ -125,7 +169,8 @@ ITEM-FORMAT should be a string like '\\\\item' or '\\\\item \\\\textbf{%s}'."
 
 ;; Convert with your specific bullet style
 (defun list-manager-org-dash-list-to-custom-latex ()
-  "Convert org-mode dash list to LaTeX with custom bullet formatting for beamer slideshows."
+  "Convert an org-mode dash list to a custom LaTeX itemize.
+The bullet formatting is styled for Beamer slideshows."
   (interactive)
   (let ((start (if (use-region-p) (region-beginning) (point-min)))
         (end (if (use-region-p) (region-end) (point-max)))
@@ -195,83 +240,6 @@ ITEM-FORMAT should be a string like '\\\\item' or '\\\\item \\\\textbf{%s}'."
       (while (re-search-forward "^\\s-*- \\(.*\\)$" end t)
         (replace-match "    \\\\item \\1")
         (setq end (+ end (- (length "    \\\\item ") (length "- "))))))))
-
-
-(defun list-manager-extract-unchecked-items (start end)
-  "Extract unchecked checklist items from region between START and END.
-Supports both org-mode style (- [ ] item) and LaTeX style (\\item [ ] item).
-Results are displayed in a new buffer named *Unchecked Items*."
-  (interactive "r")
-  (let ((region-text (buffer-substring-no-properties start end))
-        (unchecked-items '())
-        ;; Pattern for org-mode: - [ ] or * [ ] (not [X] or [x])
-        (org-pattern "^[ \t]*[-*+][ \t]+\\[[ ]\\][ \t]+\\(.+\\)$")
-        ;; Pattern for LaTeX: \item [ ] (not [X] or [x])
-        (latex-pattern "^[ \t]*\\\\item[ \t]+\\[[ ]\\][ \t]+\\(.+\\)$"))
-    ;; Process each line in the region
-    (with-temp-buffer
-      (insert region-text)
-      (goto-char (point-min))
-      (while (not (eobp))
-        (let ((line (buffer-substring-no-properties
-                     (line-beginning-position)
-                     (line-end-position))))
-          ;; Check for org-mode style unchecked item
-          (when (string-match org-pattern line)
-            (push (match-string 1 line) unchecked-items))
-          ;; Check for LaTeX style unchecked item
-          (when (string-match latex-pattern line)
-            (push (match-string 1 line) unchecked-items)))
-        (forward-line 1)))
-    ;; Reverse to maintain original order
-    (setq unchecked-items (nreverse unchecked-items))
-    ;; Display results in a new buffer
-    (if unchecked-items
-        (let ((output-buffer (get-buffer-create "*Unchecked Items*")))
-          (with-current-buffer output-buffer
-            (erase-buffer)
-            (insert "#+TITLE: Unchecked Items\n")
-            (insert "#+LaTeX_HEADER: \\usepackage[margin=0.5in]{geometry}\n\n")
-            (insert "* Unchecked Items\n\n")
-            (dolist (item unchecked-items)
-              (insert (format "- [ ] %s\n" item)))
-            (org-mode))
-          (pop-to-buffer output-buffer)
-          (message "Found %d unchecked item(s)" (length unchecked-items)))
-      (message "No unchecked items found in region"))))
-
-
-(defun list-manager-extract-unchecked-items-to-kill-ring (start end)
-  "Extract unchecked checklist items from region and copy to kill ring.
-This is a convenience variant that places results in the kill ring
-instead of a new buffer."
-  (interactive "r")
-  (let ((region-text (buffer-substring-no-properties start end))
-        (unchecked-items '())
-        (org-pattern "^[ \t]*[-*+][ \t]+\\[[ ]\\][ \t]+\\(.+\\)$")
-        (latex-pattern "^[ \t]*\\\\item[ \t]+\\[[ ]\\][ \t]+\\(.+\\)$"))
-    (with-temp-buffer
-      (insert region-text)
-      (goto-char (point-min))
-      (while (not (eobp))
-        (let ((line (buffer-substring-no-properties
-                     (line-beginning-position)
-                     (line-end-position))))
-          (when (string-match org-pattern line)
-            (push (match-string 1 line) unchecked-items))
-          (when (string-match latex-pattern line)
-            (push (match-string 1 line) unchecked-items)))
-        (forward-line 1)))
-    (setq unchecked-items (nreverse unchecked-items))
-    (if unchecked-items
-        (let ((result (mapconcat (lambda (item)
-                                   (format "- [ ] %s" item))
-                                 unchecked-items
-                                 "\n")))
-          (kill-new result)
-          (message "Copied %d unchecked item(s) to kill ring"
-                   (length unchecked-items)))
-      (message "No unchecked items found in region"))))
 
 
 (defun list-manager-extract-unchecked-items (start end)
@@ -557,8 +525,9 @@ With prefix ARG (C-u), wrap the items in an itemize environment."
 
 
 (defun list-manager-convert-org-checklist-to-dash-list (begin end)
-  "Convert org-mode checklist items to simple dash list items in the selected region.
-BEGIN and END define the boundaries of the region. Generated with Claude 3.7 Sonnet May 7, 2025."
+  "Convert org-mode checklist items to simple dash list items.
+Operates on the selected region.  BEGIN and END define the boundaries
+of the region."
   (interactive "r")  ; "r" means the function takes region as input
   (save-excursion
     (save-restriction
@@ -819,18 +788,40 @@ Example output:
         (replace-match "* TODO \\1" t)))))
 
 
-        (defun mooerslab-org-add-periods-to-list-items (begin end)
-          "Add periods to the end of all items in the selected org-mode list if missing.
-        It operates only in the selected region between BEGIN and END.
-        Preserves both checked and unchecked checkboxes and the initial dash.
-        Suitable for preparing bullet lists for slides."
-          (interactive "r")
-          (save-excursion
-            (save-restriction
-              (narrow-to-region begin end)
-              (goto-char (point-min))
-              (while (re-search-forward "^\\([ \t]*-[ \t]+\\(?:\\[[ X]\\][ \t]+\\)?\\)\\([^.\n]+\\)\\([^.]\n\\|$\\)" nil t)
-                (replace-match "\\1\\2." nil nil)))))
+(defun list-manager-org-add-periods-to-list-items (begin end)
+  "Add a period to each item in the selected org-mode list if missing.
+It operates only in the selected region between BEGIN and END.
+Preserves both checked and unchecked checkboxes and the initial dash.
+Suitable for preparing bullet lists for slides."
+  (interactive "r")
+  (save-excursion
+    (save-restriction
+      (narrow-to-region begin end)
+      (goto-char (point-min))
+      (while (re-search-forward "^\\([ \t]*-[ \t]+\\(?:\\[[ X]\\][ \t]+\\)?\\)\\([^.\n]+\\)\\([^.]\n\\|$\\)" nil t)
+        (replace-match "\\1\\2." nil nil)))))
+
+
+(defun list-manager-beginning-of-list ()
+  "Move to the beginning of the current list.
+Handles org-mode lists, checklists, and LaTeX lists.  Point is left
+on the first list line, even when the list starts at point-min."
+  (beginning-of-line)
+  (while (and (not (bobp))
+              (save-excursion
+                (forward-line -1)
+                (looking-at-p "^[ \t]*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
+    (forward-line -1)))
+
+
+(defun list-manager-end-of-list ()
+  "Move to end of the current list.
+Handles org-mode lists, checklists, and LaTeX lists."
+  (while (and (not (eobp))
+              (save-excursion
+                (beginning-of-line)
+                (looking-at-p "^[ \t]*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
+    (forward-line 1)))
 
 
 ;;; add-periods-to-list
@@ -842,48 +833,28 @@ The absence of periods will upset some audience members.
 Works with:
 - org-mode lists (-, *, numbers)
 - org-mode checklists (- [ ], * [ ])
-https://github.com/cursorless-everywhere/emacs-cursorless/issues- LaTeX \\item lists
+- LaTeX \\item lists
 - LaTeX \\item checklists (\\item [ ])
 
-Usage: Place cursor anywhere in list. Enter M-x org-or-latex-add-periods-to-list or C-c p.
+Usage: place cursor anywhere in the list.  Enter
+M-x `list-manager-org-or-latex-add-periods-to-list' or C-c p.
 Developed with the help of Claude 3.5 Sonnet."
   (interactive)
   (save-excursion
     (let ((list-end (save-excursion
-                      (end-of-list)
+                      (list-manager-end-of-list)
                       (point))))
-      (beginning-of-list)
+      (list-manager-beginning-of-list)
       (while (< (point) list-end)
         (end-of-line)
         (when (and (not (looking-back "[.!?]\\|[.!?]\"\\|[.!?]''" (line-beginning-position)))
                    (not (looking-at-p "^\\s-*$")) ; Skip empty lines
                    (save-excursion
                      (beginning-of-line)
-                     (looking-at-p "^\\s-*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
+                     (looking-at-p "^[ \t]*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
           (insert "."))
         (forward-line)))))
 (global-set-key (kbd "C-c p") 'list-manager-org-or-latex-add-periods-to-list)
-
-
-(defun list-manager-beginning-of-list ()
-  "Move to beginning of the current list.
-Handles org-mode lists, checklists, and LaTeX lists."
-  (while (and (not (bobp))
-              (save-excursion
-                (beginning-of-line)
-                (looking-at-p "^\\s-*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
-    (forward-line -1))
-  (forward-line 1))
-
-
-(defun list-manager-end-of-list ()
-  "Move to end of the current list.
-Handles org-mode lists, checklists, and LaTeX lists."
-  (while (and (not (eobp))
-              (save-excursion
-                (beginning-of-line)
-                (looking-at-p "^\\s-*\\([-*]\\(?: \\[[ X-]\\]\\)?\\|[0-9]+[.)]\\|\\\\item\\(?: \\[[ X-]\\]\\)?\\)")))
-    (forward-line 1)))
 
 
 ;;; carry-forward-todos
@@ -892,7 +863,8 @@ Handles org-mode lists, checklists, and LaTeX lists."
 ;; I know that org-agenda can do something like this.
 ;; I want more control.
 (defun list-manager-carry-forward-todos ()
-"Carry forward undone TODOs and unchecked items to Next Week while preserving categories."
+"Carry forward undone TODOs and unchecked items to Next Week.
+The category structure of the current subtree is preserved."
 (interactive)
 (save-excursion
   (let ((todos-to-move '())
@@ -1014,31 +986,26 @@ Handles org-mode lists, checklists, and LaTeX lists."
 
 ;;; region-to-itemized-list-in-org
 (defun list-manager-org-region-to-itemized-list ()
-  "Convert the lines in a selected region into an itemized list."
+  "Convert the lines in a selected region into an itemized org list."
   (interactive)
   (let ((start (region-beginning))
         (end (region-end))
-        (lines ())
+        (lines '())
         (str ""))
     (save-excursion
       (goto-char start)
       (while (< (point) end)
-        (setq lines (cons (buffer-substring (point) (progn (end-of-line) (point))) lines)))
-    (doloist (line lines)
+        (push (buffer-substring-no-properties
+               (line-beginning-position) (line-end-position))
+              lines)
+        (forward-line 1)))
+    (setq lines (nreverse lines))
+    (dolist (line lines)
       (setq str (concat str (format "- %s\n" line))))
     (delete-region start end)
-    (insert str))))
-(global-set-key (kbd "C-c l") 'region-to-itemized-list)
-
-
-(defun list-manager-remove-blank-lines-in-region (start end)
-  "Remove all blank lines in the region between START and END."
-  (interactive "r")
-  (save-excursion
-    (save-restriction
-      (narrow-to-region start end)
-      (goto-char (point-min))
-      (flush-lines "^$"))))
+    (goto-char start)
+    (insert str)))
+(global-set-key (kbd "C-c l") 'list-manager-org-region-to-itemized-list)
 
 
 (defun list-manager-org-convert-unordered-to-ordered-list (start end)
@@ -1057,7 +1024,8 @@ Handles org-mode lists, checklists, and LaTeX lists."
 
 
 (defun list-manager-org-convert-list-in-region-to-checkboxes (start end)
-  "Convert a dash/hyphen bullet list to org-mode checkboxes in region from START to END."
+  "Convert a dash/hyphen bullet list to org-mode checkboxes.
+Operates on the region from START to END."
   (interactive "r")
   (save-excursion
     (narrow-to-region start end)
@@ -1068,7 +1036,8 @@ Handles org-mode lists, checklists, and LaTeX lists."
 
 
 (defun list-manager-org-convert-checkboxes-in-region-to-list (start end)
-  "Convert org-mode checkboxes to a regular dash/hyphen bullet list in region from START to END."
+  "Convert org-mode checkboxes to a regular dash/hyphen bullet list.
+Operates on the region from START to END."
   (interactive "r")
   (save-excursion
     (narrow-to-region start end)
@@ -1106,7 +1075,7 @@ With prefix ARG (C-u), wrap in itemize environment with label=\\unchecked."
                (length result)))))
 
 
-(defun mooerslab-org-convert-lines-to-org-checklist (beg end)
+(defun list-manager-org-convert-lines-to-org-checklist (beg end)
   "Convert lines in region to org-mode checklist items.
 Preserves existing checkboxes, indentation, and empty lines.
 If no region is active, operate on the current buffer."
@@ -1144,20 +1113,21 @@ If no region is active, operate on the current buffer."
     (insert result)))
 
 
-(defun mooerslab-string-to-org-checklist (text)
+(defun list-manager-string-to-org-checklist (text)
   "Convert string TEXT to org-mode checklist format.
 Preserves existing checkboxes, indentation, and empty lines."
   (with-temp-buffer
     (insert text)
-    (convert-to-org-checklist (point-min) (point-max))
+    (list-manager-org-convert-lines-to-org-checklist (point-min) (point-max))
     (buffer-string)))
 
 
-(defun mooerslab-org-checklist-from-kill-ring ()
-  "Convert the latest kill-ring entry to org checklist format and put it back in the kill ring."
+(defun list-manager-org-checklist-from-kill-ring ()
+  "Convert the latest kill ring entry to org checklist format.
+The converted text is placed back on the kill ring."
   (interactive)
   (when kill-ring
-    (let ((converted (string-to-org-checklist (car kill-ring))))
+    (let ((converted (list-manager-string-to-org-checklist (car kill-ring))))
       (kill-new converted)
       (message "Converted text to org checklist and placed in kill ring"))))
 
@@ -1258,7 +1228,7 @@ are not already at the beginning of a line."
 
 ;;; region-to-itemized-in-latex
 (defun list-manager-latex-region-to-itemized-list (start end)
-  "Converts the region between START and END to an itemized list in LaTeX"
+  "Convert the region between START and END to a LaTeX itemized list."
   (interactive "r")  ; Use "r" to read region bounds automatically
   (let* ((text (buffer-substring-no-properties start end))
          (lines (split-string text "\n"))
@@ -1289,23 +1259,25 @@ are not already at the beginning of a line."
 (defun list-manager-restore-latex-formatting (&optional start end)
   "Restore both backslashes and newlines stripped by 750words.
 
-Runs `list-add-backslashes' followed by `list-restore-newlines'
-on the buffer or active region."
+Runs `list-manager-add-backslashes' followed by
+`list-manager-restore-newlines' on the buffer or active region."
   (interactive
    (if (use-region-p)
        (list (region-beginning) (region-end))
      (list (point-min) (point-max))))
-  (list-add-backslashes start end)
+  (list-manager-add-backslashes start end)
   ;; Recalculate end because backslashes were added
   (let ((new-end (if (use-region-p) (region-end) (point-max))))
-    (list-restore-newlines start new-end))
+    (list-manager-restore-newlines start new-end))
   (message "Restored LaTeX formatting (backslashes and newlines)."))
 
 
 ;;; Split long lines into one line per sentence.
 ;% The function is priceless when working with transripts from whisper-file.
 (defun list-manager-split-line-by-sentences (start end)
-  "Move each sentence in the region to its own line, ignoring common titles and abbreviations."
+  "Move each sentence in the region to its own line.
+Common titles and abbreviations such as Dr. and Ph.D. are ignored
+so they do not trigger a spurious line break."
   (interactive "r")
   (save-excursion
     (goto-char start)
@@ -1327,73 +1299,74 @@ on the buffer or active region."
         (replace-match ".")))))
 
 
-(define-prefix-command 'list-manager-map)
-(global-set-key (kbd "C-c x") 'list-manager-map)
+(defvar list-manager-map
+  (let ((map (make-sparse-keymap)))
+    ;; Unchecked item operations
+    (define-key map (kbd "u") 'list-manager-extract-unchecked-items)
+    (define-key map (kbd "k") 'list-manager-extract-unchecked-items-to-kill-ring)
+    (define-key map (kbd "c") 'list-manager-cut-unchecked-items)
+    (define-key map (kbd "x") 'list-manager-cut-unchecked-items-to-kill-ring)
+    ;; Checklist conversions
+    (define-key map (kbd "-") 'list-manager-convert-org-checklist-to-dash-list)
+    (define-key map (kbd "\\") 'list-manager-convert-org-checklist-to-latex-items)
+    (define-key map (kbd "[") 'list-manager-org-convert-list-in-region-to-checkboxes)
+    (define-key map (kbd "]") 'list-manager-org-convert-checkboxes-in-region-to-list)
+    ;; Org-mode list operations
+    (define-key map (kbd "m") 'list-manager-lines-in-region-to-org-list)
+    (define-key map (kbd "o") 'list-manager-org-region-to-itemized-list)
+    (define-key map (kbd "#") 'list-manager-org-convert-unordered-to-ordered-list)
+    (define-key map (kbd "p") 'list-manager-org-or-latex-add-periods-to-list)
+    (define-key map (kbd "f") 'list-manager-carry-forward-todos)
+    ;; Lines to LaTeX item conversions
+    (define-key map (kbd "l") 'list-manager-lines-to-latex-items)
+    (define-key map (kbd "U") 'list-manager-lines-to-latex-items-unchecked)
+    (define-key map (kbd "N") 'list-manager-numbered-list-to-latex-items)
+    (define-key map (kbd "d") 'list-manager-dash-list-to-latex-items)
+    ;; Org dash list to LaTeX conversions
+    (define-key map (kbd "D") 'list-manager-org-dash-list-to-latex-items)
+    (define-key map (kbd "e") 'list-manager-org-dash-list-to-latex-items-enhanced)
+    (define-key map (kbd "i") 'list-manager-org-dash-list-to-latex-itemize)
+    (define-key map (kbd "C") 'list-manager-org-dash-list-to-custom-latex)
+    ;; LaTeX to Org conversions
+    (define-key map (kbd "L -") 'list-manager-convert-latex-items-to-dash-list)
+    (define-key map (kbd "L [") 'list-manager-convert-latex-items-to-org-checklist)
+    (define-key map (kbd "L t") 'list-manager-convert-latex-items-to-todo-headlines)
+    ;; TODO headline conversions
+    (define-key map (kbd "t -") 'list-manager-convert-todo-headlines-to-dash-list)
+    (define-key map (kbd "t [") 'list-manager-convert-todo-headlines-to-checklist)
+    (define-key map (kbd "t l") 'list-manager-convert-todo-headlines-to-latex-items)
+    ;; To TODO headline conversions
+    (define-key map (kbd "T -") 'list-manager-convert-dash-list-to-todo-headlines)
+    (define-key map (kbd "T [") 'list-manager-convert-checklist-to-todo-headlines)
+    ;; LaTeX environment operations
+    (define-key map (kbd "I") 'list-manager-latex-region-to-itemized-list)
+    (define-key map (kbd ",") 'list-manager-latex-convert-csv-to-itemized-list)
+    ;; LaTeX formatting restoration (750words recovery)
+    (define-key map (kbd "B") 'list-manager-add-backslashes)
+    (define-key map (kbd "n") 'list-manager-restore-newlines)
+    (define-key map (kbd "R") 'list-manager-restore-latex-formatting)
+    (define-key map (kbd "r") 'list-manager-repair-stripped-item-list)
+    ;; Text manipulation
+    (define-key map (kbd "s") 'list-manager-split-line-by-sentences)
+    (define-key map (kbd "b") 'list-manager-remove-blank-lines-in-region)
+    (define-key map (kbd "w") 'list-manager-unwrap-to-one-sentence-per-line)
+    ;; Package introspection
+    (define-key map (kbd "P") 'list-manager-org-list-package-functions)
+    map)
+  "Keymap for List Manager commands.
+Bound to the `C-c x' prefix by default.")
+
+(defun mooerslab/delete-blank-lines-in-region (beg end)
+  "Delete blank lines (empty or whitespace-only) in the region BEG..END."
+  (interactive "r")
+  (flush-lines "^[[:space:]]*$" beg end))
+
+(global-set-key (kbd "C-c C-l") #'list-manager/delete-blank-lines-in-region)
 
 
-
-;; Unchecked item operations
-(define-key list-manager-map (kbd "u") 'list-manager-extract-unchecked-items)
-(define-key list-manager-map (kbd "k") 'list-manager-extract-unchecked-items-to-kill-ring)
-(define-key list-manager-map (kbd "c") 'list-manager-cut-unchecked-items)
-(define-key list-manager-map (kbd "x") 'list-manager-cut-unchecked-items-to-kill-ring)
-
-;; Checklist conversions
-(define-key list-manager-map (kbd "-") 'list-manager-convert-org-checklist-to-dash-list)
-(define-key list-manager-map (kbd "\\") 'list-manager-convert-org-checklist-to-latex-items)
-(define-key list-manager-map (kbd "[") 'list-manager-org-convert-list-in-region-to-checkboxes)
-(define-key list-manager-map (kbd "]") 'list-manager-org-convert-checkboxes-in-region-to-list)
-
-;; Org-mode list operations
-(define-key list-manager-map (kbd "m") 'list-manager-lines-in-region-to-org-list)
-(define-key list-manager-map (kbd "o") 'list-manager-org-region-to-itemized-list)
-(define-key list-manager-map (kbd "#") 'list-manager-org-convert-unordered-to-ordered-list)
-(define-key list-manager-map (kbd "p") 'list-manager-org-or-latex-add-periods-to-list)
-(define-key list-manager-map (kbd "f") 'list-manager-carry-forward-todos)
-
-;; Lines to LaTeX item conversions
-(define-key list-manager-map (kbd "l") 'list-manager-lines-to-latex-items)
-(define-key list-manager-map (kbd "U") 'list-manager-lines-to-latex-items-unchecked)
-(define-key list-manager-map (kbd "N") 'list-manager-numbered-list-to-latex-items)
-(define-key list-manager-map (kbd "d") 'list-manager-dash-list-to-latex-items)
-
-;; Org dash list to LaTeX conversions
-(define-key list-manager-map (kbd "D") 'list-manager-org-dash-list-to-latex-items)
-(define-key list-manager-map (kbd "e") 'list-manager-org-dash-list-to-latex-items-enhanced)
-(define-key list-manager-map (kbd "i") 'list-manager-org-dash-list-to-latex-itemize)
-(define-key list-manager-map (kbd "C") 'list-manager-org-dash-list-to-custom-latex)
-
-;; LaTeX to Org conversions (NEW)
-(define-key list-manager-map (kbd "L -") 'list-manager-convert-latex-items-to-dash-list)
-(define-key list-manager-map (kbd "L [") 'list-manager-convert-latex-items-to-org-checklist)
-(define-key list-manager-map (kbd "L t") 'list-manager-convert-latex-items-to-todo-headlines)
-
-;; TODO headline conversions (NEW)
-(define-key list-manager-map (kbd "t -") 'list-manager-convert-todo-headlines-to-dash-list)
-(define-key list-manager-map (kbd "t [") 'list-manager-convert-todo-headlines-to-checklist)
-(define-key list-manager-map (kbd "t l") 'list-manager-convert-todo-headlines-to-latex-items)
-
-;; To TODO headline conversions (NEW)
-(define-key list-manager-map (kbd "T -") 'list-manager-convert-dash-list-to-todo-headlines)
-(define-key list-manager-map (kbd "T [") 'list-manager-convert-checklist-to-todo-headlines)
-
-;; LaTeX environment operations
-(define-key list-manager-map (kbd "I") 'list-manager-latex-region-to-itemized-list)
-(define-key list-manager-map (kbd ",") 'list-manager-latex-convert-csv-to-itemized-list)
-
-;; LaTeX formatting restoration (750words recovery)
-(define-key list-manager-map (kbd "B") 'list-manager-add-backslashes)
-(define-key list-manager-map (kbd "n") 'list-manager-restore-newlines)
-(define-key list-manager-map (kbd "R") 'list-manager-restore-latex-formatting)
-
-;; Text manipulation
-(define-key list-manager-map (kbd "s") 'list-manager-split-line-by-sentences)
-(define-key list-manager-map (kbd "b") 'list-manager-remove-blank-lines-in-region)
-(define-key list-manager-map (kbd "w") 'list-manager-unwrap-to-one-sentence-per-line)
-
-;; Package introspection
-(define-key list-manager-map (kbd "P") 'list-manager-org-list-package-functions)
+;;;###autoload
+(global-set-key (kbd "C-c x") list-manager-map)
 
 (provide 'list-manager)
 
-;;; insert-checked.el ends here
+;;; list-manager.el ends here
