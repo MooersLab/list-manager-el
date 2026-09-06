@@ -1,0 +1,1115 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename list-manager.info
+@settitle List Manager Manual
+@documentencoding UTF-8
+@documentlanguage en
+@c %**end of header
+
+@copying
+This manual is for List Manager (version 1.0.0).
+
+Copyright @copyright{} 2026 Blaine Mooers.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* List Manager: (list-manager).  Manage lists in org-mode and LaTeX.
+@end direntry
+
+@titlepage
+@title List Manager
+@subtitle A comprehensive list management package for Emacs
+@subtitle Version 1.0.0
+@author Blaine Mooers
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top List Manager
+
+This manual describes List Manager, an Emacs package for managing lists
+in org-mode and LaTeX documents.
+
+@insertcopying
+@end ifnottex
+
+@menu
+* Introduction::                Overview of List Manager.
+* Installation::                How to install List Manager.
+* Quick Start::                 Getting started quickly.
+* Converting Lists::            Converting between list formats.
+* Checklist Operations::        Working with checklists.
+* Format Conversions::          LaTeX, org, and TODO headline conversions.
+* LaTeX Operations::            LaTeX-specific list operations.
+* 750words Recovery::           Recovering LaTeX formatting.
+* Text Manipulation::           Text manipulation utilities.
+* Key Bindings::                Default key bindings.
+* Function Reference::          Complete function reference.
+* Index::                       Concept and function index.
+@end menu
+
+@node Introduction
+@chapter Introduction
+
+@cindex introduction
+@cindex overview
+
+List Manager is an Emacs package that provides a comprehensive set of
+functions for managing lists in org-mode and LaTeX documents.  It
+simplifies common list manipulation tasks such as converting between
+different list formats, extracting unchecked items from checklists,
+and recovering LaTeX formatting that has been stripped by external tools.
+
+@section Features
+
+List Manager provides the following key features:
+
+@itemize @bullet
+@item
+Convert numbered, dash, asterisk, and plus lists to LaTeX @code{\item} format.
+
+@item
+Extract and cut unchecked items from org-mode and LaTeX checklists.
+
+@item
+Convert between org-mode checklists and regular lists.
+
+@item
+Convert unordered lists to ordered (numbered) lists.
+
+@item
+Wrap list items in complete LaTeX environments (@code{itemize}, @code{enumerate}).
+
+@item
+Recover LaTeX formatting stripped by tools like 750words.
+
+@item
+Split paragraphs into individual sentences.
+
+@item
+Add periods to list items missing terminal punctuation.
+@end itemize
+
+@section Supported List Formats
+
+List Manager supports the following list formats:
+
+@table @samp
+@item Org-mode dash lists
+Lines beginning with @code{- item text}.
+
+@item Org-mode asterisk lists
+Lines beginning with @code{* item text}.
+
+@item Org-mode plus lists
+Lines beginning with @code{+ item text}.
+
+@item Org-mode numbered lists
+Lines beginning with @code{1. item text}.
+
+@item Org-mode checklists
+Lines with @code{- [ ] item} (unchecked) or @code{- [X] item} (checked).
+
+@item LaTeX item lists
+Lines with @code{\item item text}.
+
+@item LaTeX checklists
+Lines with @code{\item [ ] item} or @code{\item[\checked] item}.
+@end table
+
+@node Installation
+@chapter Installation
+
+@cindex installation
+@cindex setup
+
+List Manager requires GNU Emacs 26.1 or later.  The dependencies
+@code{org} and @code{cl-lib} both ship with Emacs.
+
+@section Manual Installation
+
+List Manager is not yet on MELPA.  To install manually, clone the
+repository and add it to your load path:
+
+@example
+git clone https://github.com/MooersLab/list-manager.git
+@end example
+
+Then add to your init file:
+
+@lisp
+(add-to-list 'load-path "/path/to/list-manager")
+(require 'list-manager)
+@end lisp
+
+@section Installing with use-package
+
+@lisp
+(use-package list-manager
+  :load-path "/path/to/list-manager")
+@end lisp
+
+@section Installing the Info Manual
+
+To install the Info manual for access via @kbd{C-h i} without root
+access:
+
+@example
+cd /path/to/list-manager
+make info
+make install-info-user
+@end example
+
+Then add the directory to your init file:
+
+@lisp
+(add-to-list 'Info-directory-list "~/.local/share/info")
+@end lisp
+
+Alternatively, build and install by hand:
+
+@example
+makeinfo list-manager.texi
+sudo install-info --info-dir=/usr/share/info list-manager.info
+@end example
+
+@node Quick Start
+@chapter Quick Start
+
+@cindex quick start
+@cindex tutorial
+
+This chapter provides a quick introduction to using List Manager.
+
+@section Basic Workflow
+
+@enumerate
+@item
+Select a region containing a list.
+
+@item
+Call the appropriate conversion function using the key binding or @kbd{M-x}.
+
+@item
+The region is replaced with the converted list.
+@end enumerate
+
+@section Example: Converting a Dash List to LaTeX
+
+Suppose you have the following org-mode list:
+
+@example
+- First item
+- Second item
+- Third item
+@end example
+
+Select the region and press @kbd{C-c x d} (or @kbd{M-x list-manager-dash-list-to-latex-items}).
+The list becomes:
+
+@example
+\item First item
+\item Second item
+\item Third item
+@end example
+
+@section Example: Extracting Unchecked Items
+
+Given a checklist:
+
+@example
+- [ ] Buy groceries
+- [X] Call doctor
+- [ ] Write report
+- [X] Send email
+@end example
+
+Select the region and press @kbd{C-c x u} (or @kbd{M-x list-manager-extract-unchecked-items}).
+A new buffer @file{*Unchecked Items*} opens containing:
+
+@example
+- [ ] Buy groceries
+- [ ] Write report
+@end example
+
+@node Converting Lists
+@chapter Converting Lists
+
+@cindex converting lists
+@cindex list conversion
+
+This chapter describes functions for converting between different list formats.
+
+@section Numbered Lists to LaTeX
+
+@deffn Command list-manager-numbered-list-to-latex-items
+@findex list-manager-numbered-list-to-latex-items
+Convert a numbered list to LaTeX @code{\item} statements.
+
+Input:
+@example
+1. First item
+2. Second item
+3. Third item
+@end example
+
+Output:
+@example
+\item First item
+\item Second item
+\item Third item
+@end example
+@end deffn
+
+@section Dash Lists to LaTeX
+
+@deffn Command list-manager-dash-list-to-latex-items
+@findex list-manager-dash-list-to-latex-items
+Convert a dash, asterisk, or plus list to LaTeX @code{\item} statements.
+Works with @code{-}, @code{*}, and @code{+} markers.
+@end deffn
+
+@deffn Command list-manager-org-dash-list-to-latex-items
+@findex list-manager-org-dash-list-to-latex-items
+Convert an org-mode dash list to LaTeX @code{\item} format with proper
+indentation.  Works on the selected region or the entire buffer.
+@end deffn
+
+@section Creating Complete LaTeX Environments
+
+@deffn Command list-manager-org-dash-list-to-latex-itemize
+@findex list-manager-org-dash-list-to-latex-itemize
+Convert an org-mode dash list to a complete LaTeX @code{itemize}
+environment, wrapped in org-mode export blocks.
+
+Input:
+@example
+- First item
+- Second item
+@end example
+
+Output:
+@example
+#+BEGIN_EXPORT latex
+\begin@{itemize@}
+    \item First item
+    \item Second item
+\end@{itemize@}
+#+END_EXPORT
+@end example
+@end deffn
+
+@deffn Command list-manager-org-dash-list-to-custom-latex
+@findex list-manager-org-dash-list-to-custom-latex
+Convert an org-mode dash list to a custom LaTeX format suitable for
+Beamer slideshows, with @code{\Large} font and custom bullet formatting.
+@end deffn
+
+@section Converting Lines to Lists
+
+@deffn Command list-manager-lines-to-latex-items start end &optional arg
+@findex list-manager-lines-to-latex-items
+Convert each line in the region to a LaTeX @code{\item}.  Empty lines
+are skipped.  With prefix argument @var{arg} (@kbd{C-u}), wrap the items
+in an @code{itemize} environment.
+@end deffn
+
+@deffn Command list-manager-lines-in-region-to-org-list marker
+@findex list-manager-lines-in-region-to-org-list
+Convert lines in the region to an org-mode list with the specified
+@var{marker} (@code{-}, @code{+}, or @code{*}).  Prompts for the marker
+interactively.
+@end deffn
+
+@section Unordered to Ordered Lists
+
+@deffn Command list-manager-org-convert-unordered-to-ordered-list start end
+@findex list-manager-org-convert-unordered-to-ordered-list
+Convert unnumbered list items (using @code{-}, @code{+}, or @code{*})
+to numbered list items in the marked region.
+
+Input:
+@example
+- First item
+- Second item
+- Third item
+@end example
+
+Output:
+@example
+1. First item
+2. Second item
+3. Third item
+@end example
+@end deffn
+
+@node Checklist Operations
+@chapter Checklist Operations
+
+@cindex checklists
+@cindex unchecked items
+@cindex todo items
+
+This chapter describes functions for working with checklists.
+
+@section Extracting Unchecked Items
+
+@deffn Command list-manager-extract-unchecked-items start end
+@findex list-manager-extract-unchecked-items
+Extract unchecked checklist items from the region and display them in
+a new buffer named @file{*Unchecked Items*}.  Supports multiple formats:
+
+@itemize @bullet
+@item
+Org-mode style: @code{- [ ] item} vs @code{- [X] item}
+
+@item
+LaTeX style 1: @code{\item [ ] item} vs @code{\item [X] item}
+
+@item
+LaTeX style 2: @code{\item item} vs @code{\item[\checked] item}
+@end itemize
+@end deffn
+
+@deffn Command list-manager-extract-unchecked-items-to-kill-ring start end
+@findex list-manager-extract-unchecked-items-to-kill-ring
+Like @code{list-manager-extract-unchecked-items}, but copies the
+unchecked items to the kill ring instead of a new buffer.  Useful for
+pasting items elsewhere.
+@end deffn
+
+@section Cutting Unchecked Items
+
+@deffn Command list-manager-cut-unchecked-items start end
+@findex list-manager-cut-unchecked-items
+Cut (remove) unchecked items from the region and display them in a new
+buffer.  The original buffer retains only the checked items.
+@end deffn
+
+@deffn Command list-manager-cut-unchecked-items-to-kill-ring start end
+@findex list-manager-cut-unchecked-items-to-kill-ring
+Cut unchecked items and place them in the kill ring instead of a new buffer.
+@end deffn
+
+@section Converting Checklists
+
+@deffn Command list-manager-convert-org-checklist-to-dash-list begin end
+@findex list-manager-convert-org-checklist-to-dash-list
+Convert org-mode checklist items to simple dash list items.  Removes
+the checkbox markers @code{[ ]} or @code{[X]} while preserving indentation.
+
+Input:
+@example
+- [ ] Unchecked item
+- [X] Checked item
+@end example
+
+Output:
+@example
+- Unchecked item
+- Checked item
+@end example
+@end deffn
+
+@deffn Command list-manager-org-convert-list-in-region-to-checkboxes start end
+@findex list-manager-org-convert-list-in-region-to-checkboxes
+Convert a dash/hyphen bullet list to org-mode checkboxes.
+
+Input:
+@example
+- Item one
+- Item two
+@end example
+
+Output:
+@example
+- [ ] Item one
+- [ ] Item two
+@end example
+@end deffn
+
+@deffn Command list-manager-org-convert-checkboxes-in-region-to-list start end
+@findex list-manager-org-convert-checkboxes-in-region-to-list
+Convert org-mode checkboxes back to a regular dash list, removing
+checkbox markers.
+@end deffn
+
+@section Carrying Forward Todos
+
+@deffn Command list-manager-carry-forward-todos
+@findex list-manager-carry-forward-todos
+Carry forward undone TODOs and unchecked items to a ``Next Week''
+heading while preserving category organization.  Useful for weekly
+planning in org-mode.  The function:
+
+@enumerate
+@item
+Collects undone TODOs and unchecked items from the current heading.
+
+@item
+Creates or finds a ``Next Week'' heading.
+
+@item
+Inserts items under their respective categories.
+
+@item
+Marks original items as done.
+@end enumerate
+@end deffn
+
+@section Converting Lines and Strings to Checklists
+
+@deffn Command list-manager-org-convert-lines-to-org-checklist beg end
+@findex list-manager-org-convert-lines-to-org-checklist
+Convert the lines in the region to org-mode checklist items.  Existing
+checkboxes, indentation, and empty lines are preserved.  When no region
+is active, the whole buffer is used.
+@end deffn
+
+@deffn Function list-manager-string-to-org-checklist text
+@findex list-manager-string-to-org-checklist
+Return @var{text} converted to org-mode checklist format.  This is a
+non-interactive helper used by other commands.
+@end deffn
+
+@deffn Command list-manager-org-checklist-from-kill-ring
+@findex list-manager-org-checklist-from-kill-ring
+Convert the most recent kill-ring entry to an org checklist and place
+the result back on the kill ring.
+@end deffn
+
+@node Format Conversions
+@chapter Format Conversions
+
+@cindex format conversions
+@cindex todo headlines
+@cindex latex to org
+
+This chapter describes the commands that convert among LaTeX items, org
+dash lists, org checklists, and org TODO headlines.  Each command acts on
+the active region.
+
+@section LaTeX Items to Org
+
+@deffn Command list-manager-convert-latex-items-to-dash-list begin end
+@findex list-manager-convert-latex-items-to-dash-list
+Convert LaTeX @code{\item} entries to org-mode dash list items,
+preserving indentation.
+@end deffn
+
+@deffn Command list-manager-convert-latex-items-to-org-checklist begin end
+@findex list-manager-convert-latex-items-to-org-checklist
+Convert LaTeX @code{\item} entries to unchecked org-mode checklist items.
+@end deffn
+
+@deffn Command list-manager-convert-latex-items-to-todo-headlines begin end
+@findex list-manager-convert-latex-items-to-todo-headlines
+Convert LaTeX @code{\item} entries to level-one @code{TODO} headlines.
+@end deffn
+
+@section Org Checklists and Dash Lists to LaTeX
+
+@deffn Command list-manager-convert-org-checklist-to-latex-items begin end
+@findex list-manager-convert-org-checklist-to-latex-items
+Convert org-mode checklist items, whether checked or unchecked, to LaTeX
+@code{\item} entries.  The checkbox markup is removed.
+@end deffn
+
+@section Dash Lists and Checklists to TODO Headlines
+
+@deffn Command list-manager-convert-dash-list-to-todo-headlines begin end
+@findex list-manager-convert-dash-list-to-todo-headlines
+Convert org-mode dash list items to level-one @code{TODO} headlines.
+@end deffn
+
+@deffn Command list-manager-convert-checklist-to-todo-headlines begin end
+@findex list-manager-convert-checklist-to-todo-headlines
+Convert org-mode checklist items to headlines.  Unchecked items become
+@code{TODO} headlines and checked items become @code{DONE} headlines.
+@end deffn
+
+@section TODO Headlines to Lists
+
+@deffn Command list-manager-convert-todo-headlines-to-dash-list begin end
+@findex list-manager-convert-todo-headlines-to-dash-list
+Convert org-mode @code{TODO}, @code{DONE}, and related headlines to dash
+list items, removing the keyword and the leading stars.
+@end deffn
+
+@deffn Command list-manager-convert-todo-headlines-to-checklist begin end
+@findex list-manager-convert-todo-headlines-to-checklist
+Convert org-mode headlines to checklist items.  @code{DONE} and
+@code{CANCELLED} headlines become checked items; @code{TODO},
+@code{WAITING}, @code{NEXT}, and @code{SOMEDAY} headlines become
+unchecked items.
+@end deffn
+
+@deffn Command list-manager-convert-todo-headlines-to-latex-items begin end
+@findex list-manager-convert-todo-headlines-to-latex-items
+Convert org-mode @code{TODO} and @code{DONE} headlines to LaTeX
+@code{\item} entries, removing the keyword and the leading stars.
+@end deffn
+
+@section Region to Org Itemized List
+
+@deffn Command list-manager-org-region-to-itemized-list
+@findex list-manager-org-region-to-itemized-list
+Convert every line in the selected region to an org-mode dash list item.
+@end deffn
+
+@node LaTeX Operations
+@chapter LaTeX Operations
+
+@cindex LaTeX
+@cindex itemize
+@cindex enumerate
+
+This chapter describes LaTeX-specific list operations.
+
+@section Region to Itemized List
+
+@deffn Command list-manager-latex-region-to-itemized-list start end
+@findex list-manager-latex-region-to-itemized-list
+Convert the region to a complete LaTeX @code{itemize} environment.
+Each line becomes an @code{\item}.  Empty lines produce empty items.
+
+Input:
+@example
+First item
+Second item
+Third item
+@end example
+
+Output:
+@example
+\begin@{itemize@}
+\item First item
+\item Second item
+\item Third item
+\end@{itemize@}
+@end example
+@end deffn
+
+@section CSV to Itemized List
+
+@deffn Command list-manager-latex-convert-csv-to-itemized-list start end
+@findex list-manager-latex-convert-csv-to-itemized-list
+Convert a comma-separated list to a LaTeX @code{itemize} environment.
+
+Input:
+@example
+apple, banana, cherry
+@end example
+
+Output:
+@example
+\begin@{itemize@}
+  \item apple
+  \item banana
+  \item cherry
+\end@{itemize@}
+@end example
+@end deffn
+
+@section Unchecked LaTeX Items
+
+@deffn Command list-manager-lines-to-latex-items-unchecked start end &optional arg
+@findex list-manager-lines-to-latex-items-unchecked
+Convert each line in the region to a LaTeX @code{\item} for use with
+the @code{\checked}/@code{\unchecked} system.  With prefix argument
+@var{arg}, wrap in an @code{itemize} environment with
+@code{label=\unchecked}.
+@end deffn
+
+@node 750words Recovery
+@chapter 750words Recovery
+
+@cindex 750words
+@cindex formatting recovery
+
+The website 750words.com is useful for daily writing practice but
+strips LaTeX formatting.  List Manager provides functions to recover
+this formatting.
+
+@section Adding Backslashes
+
+@deffn Command list-manager-add-backslashes &optional start end
+@findex list-manager-add-backslashes
+Add backslashes in front of LaTeX keywords that 750words strips.
+Operates on the active region or the entire buffer.
+
+Keywords restored: @code{chapter}, @code{section}, @code{subsection},
+@code{subsubsection}, @code{include}, @code{begin}, @code{end},
+@code{index}, @code{label}, and @code{item}.
+
+Before:
+@example
+section@{Introduction@}
+begin@{itemize@}
+item First
+end@{itemize@}
+@end example
+
+After:
+@example
+\section@{Introduction@}
+\begin@{itemize@}
+\item First
+\end@{itemize@}
+@end example
+@end deffn
+
+@section Restoring Newlines
+
+@deffn Command list-manager-restore-newlines &optional start end
+@findex list-manager-restore-newlines
+Restore newlines before LaTeX list keywords that 750words strips.
+Inserts a newline before @code{\item}, @code{\begin}, and @code{\end}
+when they are not already at the beginning of a line.
+@end deffn
+
+@section Combined Recovery
+
+@deffn Command list-manager-restore-latex-formatting &optional start end
+@findex list-manager-restore-latex-formatting
+Restore both backslashes and newlines stripped by 750words.  Runs
+@code{list-manager-add-backslashes} followed by
+@code{list-manager-restore-newlines}.
+@end deffn
+
+@section Repairing Flattened Item Lists
+
+@deffn Command list-manager-repair-stripped-item-list beg end
+@findex list-manager-repair-stripped-item-list
+Rebuild a LaTeX @code{\item} list that was flattened into a single line
+with the backslashes removed.  A bare word @code{item} is restored to
+@code{\item} and placed on its own line only when it stands as a whole
+word, so the command is safe to run twice and never splits words such as
+@code{itemize}.
+
+Before:
+@example
+item Do this. item Do that.
+@end example
+
+After:
+@example
+\item Do this.
+\item Do that.
+@end example
+@end deffn
+
+@node Text Manipulation
+@chapter Text Manipulation
+
+@cindex text manipulation
+@cindex sentences
+@cindex blank lines
+
+This chapter describes text manipulation utilities.
+
+@section Splitting by Sentences
+
+@deffn Command list-manager-split-line-by-sentences start end
+@findex list-manager-split-line-by-sentences
+Move each sentence in the region to its own line.  Ignores common
+titles and abbreviations such as Dr., Mr., Mrs., Ph.D., and M.S.
+Useful for working with transcripts from speech-to-text tools like Whisper.
+
+Before:
+@example
+Dr. Smith said hello. Mr. Jones agreed. It was a good day.
+@end example
+
+After:
+@example
+Dr. Smith said hello.
+Mr. Jones agreed.
+It was a good day.
+@end example
+@end deffn
+
+@section Removing Blank Lines
+
+@deffn Command list-manager-remove-blank-lines-in-region start end
+@findex list-manager-remove-blank-lines-in-region
+Remove all blank lines in the region.  Blank lines include empty lines
+and lines containing only whitespace.
+@end deffn
+
+@section Adding Periods to List Items
+
+@deffn Command list-manager-org-or-latex-add-periods-to-list
+@findex list-manager-org-or-latex-add-periods-to-list
+Add a period to the end of each line in the current list if missing.
+Works with org-mode lists, org-mode checklists, and LaTeX @code{\item}
+lists.  Place the cursor anywhere in the list and invoke this command.
+@end deffn
+
+@deffn Command list-manager-org-add-periods-to-list-items begin end
+@findex list-manager-org-add-periods-to-list-items
+Add a period to each item of the selected org-mode list if missing.
+Both checked and unchecked checkboxes and the leading dash are preserved.
+@end deffn
+
+@section Reflowing to One Sentence Per Line
+
+@deffn Command list-manager-unwrap-to-one-sentence-per-line &optional beg end
+@findex list-manager-unwrap-to-one-sentence-per-line
+Reflow the region, or the current paragraph, to one sentence per line.
+First the wrapped lines of the paragraph are joined, then a newline is
+inserted after each sentence so that every sentence sits on its own line.
+@end deffn
+
+@node Key Bindings
+@chapter Key Bindings
+
+@cindex key bindings
+@cindex keyboard shortcuts
+
+List Manager uses the prefix @kbd{C-c x} for all its key bindings.
+
+@section Unchecked Item Operations
+
+@table @kbd
+@item C-c x u
+@code{list-manager-extract-unchecked-items}
+
+@item C-c x k
+@code{list-manager-extract-unchecked-items-to-kill-ring}
+
+@item C-c x c
+@code{list-manager-cut-unchecked-items}
+
+@item C-c x x
+@code{list-manager-cut-unchecked-items-to-kill-ring}
+@end table
+
+@section Checklist Conversions
+
+@table @kbd
+@item C-c x -
+@code{list-manager-convert-org-checklist-to-dash-list}
+
+@item C-c x \
+@code{list-manager-convert-org-checklist-to-latex-items}
+
+@item C-c x [
+@code{list-manager-org-convert-list-in-region-to-checkboxes}
+
+@item C-c x ]
+@code{list-manager-org-convert-checkboxes-in-region-to-list}
+@end table
+
+@section Org-mode List Operations
+
+@table @kbd
+@item C-c x m
+@code{list-manager-lines-in-region-to-org-list}
+
+@item C-c x o
+@code{list-manager-org-region-to-itemized-list}
+
+@item C-c x #
+@code{list-manager-org-convert-unordered-to-ordered-list}
+
+@item C-c x p
+@code{list-manager-org-or-latex-add-periods-to-list}
+
+@item C-c x f
+@code{list-manager-carry-forward-todos}
+@end table
+
+@section Lines to LaTeX Item Conversions
+
+@table @kbd
+@item C-c x l
+@code{list-manager-lines-to-latex-items}
+
+@item C-c x U
+@code{list-manager-lines-to-latex-items-unchecked}
+
+@item C-c x N
+@code{list-manager-numbered-list-to-latex-items}
+
+@item C-c x d
+@code{list-manager-dash-list-to-latex-items}
+@end table
+
+@section Org Dash List to LaTeX Conversions
+
+@table @kbd
+@item C-c x D
+@code{list-manager-org-dash-list-to-latex-items}
+
+@item C-c x e
+@code{list-manager-org-dash-list-to-latex-items-enhanced}
+
+@item C-c x i
+@code{list-manager-org-dash-list-to-latex-itemize}
+
+@item C-c x C
+@code{list-manager-org-dash-list-to-custom-latex}
+@end table
+
+@section LaTeX to Org Conversions
+
+@table @kbd
+@item C-c x L -
+@code{list-manager-convert-latex-items-to-dash-list}
+
+@item C-c x L [
+@code{list-manager-convert-latex-items-to-org-checklist}
+
+@item C-c x L t
+@code{list-manager-convert-latex-items-to-todo-headlines}
+@end table
+
+@section TODO Headline Conversions
+
+@table @kbd
+@item C-c x t -
+@code{list-manager-convert-todo-headlines-to-dash-list}
+
+@item C-c x t [
+@code{list-manager-convert-todo-headlines-to-checklist}
+
+@item C-c x t l
+@code{list-manager-convert-todo-headlines-to-latex-items}
+
+@item C-c x T -
+@code{list-manager-convert-dash-list-to-todo-headlines}
+
+@item C-c x T [
+@code{list-manager-convert-checklist-to-todo-headlines}
+@end table
+
+@section LaTeX Environment Operations
+
+@table @kbd
+@item C-c x I
+@code{list-manager-latex-region-to-itemized-list}
+
+@item C-c x ,
+@code{list-manager-latex-convert-csv-to-itemized-list}
+@end table
+
+@section LaTeX Formatting Restoration
+
+@table @kbd
+@item C-c x B
+@code{list-manager-add-backslashes}
+
+@item C-c x n
+@code{list-manager-restore-newlines}
+
+@item C-c x R
+@code{list-manager-restore-latex-formatting}
+
+@item C-c x r
+@code{list-manager-repair-stripped-item-list}
+@end table
+
+@section Text Manipulation
+
+@table @kbd
+@item C-c x s
+@code{list-manager-split-line-by-sentences}
+
+@item C-c x b
+@code{list-manager-remove-blank-lines-in-region}
+
+@item C-c x w
+@code{list-manager-unwrap-to-one-sentence-per-line}
+@end table
+
+@section Package Introspection
+
+@table @kbd
+@item C-c x P
+@code{list-manager-org-list-package-functions}
+@end table
+
+@node Function Reference
+@chapter Function Reference
+
+@cindex function reference
+@cindex API
+
+This chapter provides a complete reference of all List Manager functions.
+
+@section List Conversion Functions
+
+@ftable @code
+@item list-manager-numbered-list-to-latex-items
+Convert numbered list to LaTeX items.
+
+@item list-manager-dash-list-to-latex-items
+Convert dash/asterisk/plus list to LaTeX items.
+
+@item list-manager-org-dash-list-to-latex-items
+Convert org dash list to LaTeX items with indentation.
+
+@item list-manager-org-dash-list-to-latex-items-enhanced
+Convert org dash list with custom formatting.
+
+@item list-manager-org-dash-list-to-latex-itemize
+Convert to complete itemize environment.
+
+@item list-manager-org-dash-list-to-custom-latex
+Convert to custom Beamer-style format.
+
+@item list-manager-lines-to-latex-items
+Convert plain lines to LaTeX items.
+
+@item list-manager-lines-to-latex-items-unchecked
+Convert lines to unchecked LaTeX items.
+
+@item list-manager-lines-in-region-to-org-list
+Convert lines to org-mode list.
+
+@item list-manager-org-convert-unordered-to-ordered-list
+Convert unordered to numbered list.
+@end ftable
+
+@section Checklist Functions
+
+@ftable @code
+@item list-manager-extract-unchecked-items
+Extract unchecked items to buffer.
+
+@item list-manager-extract-unchecked-items-to-kill-ring
+Extract unchecked items to kill ring.
+
+@item list-manager-cut-unchecked-items
+Cut unchecked items to buffer.
+
+@item list-manager-cut-unchecked-items-to-kill-ring
+Cut unchecked items to kill ring.
+
+@item list-manager-convert-org-checklist-to-dash-list
+Remove checkboxes from list.
+
+@item list-manager-org-convert-list-in-region-to-checkboxes
+Add checkboxes to list.
+
+@item list-manager-org-convert-checkboxes-in-region-to-list
+Remove checkboxes from list.
+
+@item list-manager-convert-org-checklist-to-latex-items
+Convert checklist items to LaTeX items.
+
+@item list-manager-org-convert-lines-to-org-checklist
+Convert region lines to a checklist.
+
+@item list-manager-string-to-org-checklist
+Convert a string to checklist format.
+
+@item list-manager-org-checklist-from-kill-ring
+Convert the latest kill to a checklist.
+
+@item list-manager-carry-forward-todos
+Carry forward undone items.
+@end ftable
+
+@section Format Conversion Functions
+
+@ftable @code
+@item list-manager-convert-latex-items-to-dash-list
+LaTeX items to org dash list.
+
+@item list-manager-convert-latex-items-to-org-checklist
+LaTeX items to org checklist.
+
+@item list-manager-convert-latex-items-to-todo-headlines
+LaTeX items to TODO headlines.
+
+@item list-manager-convert-dash-list-to-todo-headlines
+Dash list to TODO headlines.
+
+@item list-manager-convert-checklist-to-todo-headlines
+Checklist to TODO/DONE headlines.
+
+@item list-manager-convert-todo-headlines-to-dash-list
+TODO headlines to dash list.
+
+@item list-manager-convert-todo-headlines-to-checklist
+TODO headlines to checklist.
+
+@item list-manager-convert-todo-headlines-to-latex-items
+TODO headlines to LaTeX items.
+
+@item list-manager-org-region-to-itemized-list
+Region lines to org dash list.
+@end ftable
+
+@section LaTeX Functions
+
+@ftable @code
+@item list-manager-latex-region-to-itemized-list
+Wrap region in itemize environment.
+
+@item list-manager-latex-convert-csv-to-itemized-list
+Convert CSV to itemize environment.
+
+@item list-manager-add-backslashes
+Add backslashes to LaTeX keywords.
+
+@item list-manager-restore-newlines
+Restore newlines before LaTeX keywords.
+
+@item list-manager-restore-latex-formatting
+Combined backslash and newline restoration.
+
+@item list-manager-repair-stripped-item-list
+Rebuild a flattened @code{\item} list.
+@end ftable
+
+@section Utility Functions
+
+@ftable @code
+@item list-manager-split-line-by-sentences
+Split text into one sentence per line.
+
+@item list-manager-unwrap-to-one-sentence-per-line
+Join wrapped lines, then split by sentence.
+
+@item list-manager-remove-blank-lines-in-region
+Remove blank lines from region.
+
+@item list-manager-org-or-latex-add-periods-to-list
+Add missing periods to list items.
+
+@item list-manager-org-add-periods-to-list-items
+Add missing periods to org list items.
+
+@item list-manager-beginning-of-list
+Move to beginning of current list.
+
+@item list-manager-end-of-list
+Move to end of current list.
+
+@item list-manager-org-list-package-functions
+List functions in a package.
+@end ftable
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+@printindex fn
+
+@bye

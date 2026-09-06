@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "List Manager"
+abstract: >-
+  An Emacs package that converts lists among the formats used in
+  org-mode and LaTeX writing workflows, extracts and carries forward
+  unchecked checklist items, and repairs LaTeX list markup.
+type: software
+authors:
+  - family-names: Mooers
+    given-names: Blaine
+    email: blaine-mooers@ou.edu
+    affiliation: >-
+      Department of Biochemistry and Physiology, University of Oklahoma
+      Health Sciences Center
+version: "1.0.0"
+date-released: "2026-07-22"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/MooersLab/list-manager"
+url: "https://github.com/MooersLab/list-manager"
+keywords:
+  - emacs
+  - org-mode
+  - latex
+  - lists
+  - checklists
+  - writing
+preferred-citation:
+  type: software
+  title: "List Manager"
+  authors:
+    - family-names: Mooers
+      given-names: Blaine
+      email: blaine-mooers@ou.edu
+  version: "1.0.0"
+  year: 2026
+  url: "https://github.com/MooersLab/list-manager"

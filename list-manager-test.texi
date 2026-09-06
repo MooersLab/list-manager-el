@@ -1,0 +1,662 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename list-manager-test.info
+@settitle List Manager Test Suite Manual
+@documentencoding UTF-8
+@documentlanguage en
+@c %**end of header
+
+@copying
+This manual is for List Manager Test Suite (version 1.0.0).
+
+Copyright @copyright{} 2026 Blaine Mooers.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* List Manager Tests: (list-manager-test).  Test suite for List Manager.
+@end direntry
+
+@titlepage
+@title List Manager Test Suite
+@subtitle ERT tests for the list-manager package
+@subtitle Version 1.0.0
+@author Blaine Mooers
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top List Manager Test Suite
+
+This manual describes the ERT test suite for the List Manager package.
+
+@insertcopying
+@end ifnottex
+
+@menu
+* Introduction::                Overview of the test suite.
+* Running Tests::               How to run the tests.
+* Test Categories::             Categories of tests.
+* Unit Tests::                  Individual function tests.
+* Integration Tests::           Multi-function workflow tests.
+* Edge Case Tests::             Boundary condition tests.
+* Writing New Tests::           How to add new tests.
+* Index::                       Concept and function index.
+@end menu
+
+@node Introduction
+@chapter Introduction
+
+@cindex introduction
+@cindex overview
+@cindex ERT
+
+The List Manager Test Suite provides comprehensive test coverage for the
+@code{list-manager.el} package using Emacs Lisp Regression Testing (ERT).
+
+@section Purpose
+
+The test suite serves multiple purposes:
+
+@itemize @bullet
+@item
+Verify that all functions work correctly.
+
+@item
+Prevent regressions when making changes.
+
+@item
+Document expected behavior through examples.
+
+@item
+Provide confidence for MELPA submission.
+@end itemize
+
+@section Test Coverage
+
+The test suite contains 130 tests covering:
+
+@itemize @bullet
+@item
+List conversion functions (numbered, dash, asterisk, plus lists).
+
+@item
+Checklist operations (extract, cut, convert).
+
+@item
+LaTeX environment creation.
+
+@item
+750words formatting recovery.
+
+@item
+Text manipulation utilities.
+
+@item
+Edge cases and boundary conditions.
+
+@item
+Multi-function integration workflows.
+@end itemize
+
+@node Running Tests
+@chapter Running Tests
+
+@cindex running tests
+@cindex ERT commands
+
+This chapter explains how to run the List Manager test suite.
+
+@section Running All Tests
+
+To run all tests interactively:
+
+@example
+M-x ert RET t RET
+@end example
+
+@section Running Tests by Pattern
+
+To run tests matching a specific pattern:
+
+@example
+M-x ert RET "list-manager" RET
+@end example
+
+This runs all tests whose names contain ``list-manager''.
+
+@section Running a Specific Test
+
+To run a single test:
+
+@example
+M-x ert RET list-manager-test-numbered-list-to-latex-items-basic RET
+@end example
+
+@section Running Tests in Batch Mode
+
+For continuous integration or command-line testing:
+
+@example
+emacs --batch -Q -L . \
+  -l list-manager.el \
+  -l list-manager-test.el \
+  -f ert-run-tests-batch-and-exit
+@end example
+
+@section Running Tests with Make
+
+If using the provided Makefile:
+
+@example
+cd /path/to/list-manager
+make test
+@end example
+
+@section Interpreting Results
+
+ERT displays results in a special buffer:
+
+@table @samp
+@item passed
+The test succeeded.
+
+@item FAILED
+The test failed.  Click on the test name for details.
+
+@item skipped
+The test was skipped (usually due to missing dependencies).
+@end table
+
+Expected output for a successful run:
+
+@example
+Ran 130 tests, 130 results as expected, 0 unexpected
+@end example
+
+@node Test Categories
+@chapter Test Categories
+
+@cindex test categories
+@cindex test organization
+
+The tests are organized into several categories.
+
+@section Unit Tests
+
+Unit tests verify individual functions in isolation.  Each test:
+
+@itemize @bullet
+@item
+Tests a single function.
+
+@item
+Uses minimal setup.
+
+@item
+Verifies specific input/output behavior.
+@end itemize
+
+Example categories:
+
+@itemize @bullet
+@item
+@code{list-manager-test-numbered-list-*} --- Numbered list conversions.
+
+@item
+@code{list-manager-test-dash-list-*} --- Dash list conversions.
+
+@item
+@code{list-manager-test-extract-unchecked-*} --- Unchecked item extraction.
+
+@item
+@code{list-manager-test-convert-*} --- List format conversions.
+@end itemize
+
+@section Integration Tests
+
+Integration tests verify that multiple functions work together correctly.
+They test common workflows:
+
+@itemize @bullet
+@item
+@code{list-manager-integration-test-org-to-latex-workflow}
+
+@item
+@code{list-manager-integration-test-latex-formatting-recovery}
+
+@item
+@code{list-manager-integration-test-extract-and-cut-workflow}
+@end itemize
+
+@section Edge Case Tests
+
+Edge case tests verify behavior at boundaries:
+
+@itemize @bullet
+@item
+Empty buffers and regions.
+
+@item
+Single-item lists.
+
+@item
+Special characters (unicode, LaTeX symbols).
+
+@item
+Very long items.
+
+@item
+Nested brackets.
+@end itemize
+
+@section Performance Tests
+
+Performance tests ensure operations complete in reasonable time:
+
+@itemize @bullet
+@item
+@code{list-manager-performance-test-large-list} --- Tests handling of
+1000-item lists.
+@end itemize
+
+Performance tests are tagged with @code{:slow} and can be excluded
+from regular test runs.
+
+@section Regression Tests
+
+Regression tests pin the behavior of bugs fixed in the 1.0.0 release so
+they cannot return:
+
+@itemize @bullet
+@item
+@code{list-manager-test-enhanced-plain-item} and
+@code{list-manager-test-enhanced-all-items-converted} --- the enhanced
+conversion inserts backslashes literally and converts every item.
+
+@item
+@code{list-manager-test-repair-stripped-item-list-idempotent} and
+@code{list-manager-test-repair-stripped-item-list-preserves-itemize} ---
+the repair command is idempotent and never splits words such as
+@code{itemize}.
+
+@item
+@code{list-manager-test-org-or-latex-add-periods-org} and
+@code{list-manager-test-beginning-of-list-at-bob} --- the first item of
+a list at the start of the buffer is handled correctly.
+
+@item
+@code{list-manager-test-restore-latex-formatting} --- the combined
+750words recovery command runs without error.
+@end itemize
+
+@node Unit Tests
+@chapter Unit Tests
+
+@cindex unit tests
+@cindex function tests
+
+This chapter describes the unit tests in detail.
+
+@section Numbered List Tests
+
+@deffn Test list-manager-test-numbered-list-to-latex-items-basic
+Tests basic conversion of numbered list to LaTeX items.
+
+Input:
+@example
+1. First item
+2. Second item
+3. Third item
+@end example
+
+Expected: Each line contains @code{\item} followed by the text.
+@end deffn
+
+@deffn Test list-manager-test-numbered-list-to-latex-items-with-leading-spaces
+Tests conversion with leading whitespace in numbered list.
+@end deffn
+
+@deffn Test list-manager-test-numbered-list-to-latex-items-double-digits
+Tests conversion with double-digit numbers (10, 11, etc.).
+@end deffn
+
+@section Dash List Tests
+
+@deffn Test list-manager-test-dash-list-to-latex-items-basic
+Tests basic conversion of dash list to LaTeX items.
+@end deffn
+
+@deffn Test list-manager-test-dash-list-to-latex-items-asterisk
+Tests conversion of asterisk (@code{*}) list to LaTeX items.
+@end deffn
+
+@deffn Test list-manager-test-dash-list-to-latex-items-plus
+Tests conversion of plus (@code{+}) list to LaTeX items.
+@end deffn
+
+@section Unchecked Item Tests
+
+@deffn Test list-manager-test-extract-unchecked-org-style
+Tests extraction of unchecked org-mode style items (@code{- [ ] item}).
+Verifies that checked items (@code{- [X] item}) are not extracted.
+@end deffn
+
+@deffn Test list-manager-test-extract-unchecked-latex-style-1
+Tests extraction of LaTeX style 1 items (@code{\item [ ] text}).
+@end deffn
+
+@deffn Test list-manager-test-extract-unchecked-latex-style-2
+Tests extraction of LaTeX style 2 items (plain @code{\item} without
+@code{[\checked]} marker).
+@end deffn
+
+@deffn Test list-manager-test-extract-unchecked-no-items
+Tests behavior when no unchecked items exist.
+@end deffn
+
+@section Checklist Conversion Tests
+
+@deffn Test list-manager-test-convert-checklist-to-dash-unchecked
+Tests removing @code{[ ]} checkboxes from unchecked items.
+@end deffn
+
+@deffn Test list-manager-test-convert-checklist-to-dash-checked
+Tests removing @code{[X]} checkboxes from checked items.
+@end deffn
+
+@deffn Test list-manager-test-convert-list-to-checkboxes
+Tests adding checkboxes to dash list items.
+@end deffn
+
+@section LaTeX Environment Tests
+
+@deffn Test list-manager-test-latex-region-to-itemized-list
+Tests wrapping region in complete @code{itemize} environment.
+@end deffn
+
+@deffn Test list-manager-test-csv-to-latex-itemized
+Tests converting comma-separated values to itemized list.
+@end deffn
+
+@section Formatting Recovery Tests
+
+@deffn Test list-manager-test-add-backslashes-section
+Tests adding backslash to @code{section} keyword.
+@end deffn
+
+@deffn Test list-manager-test-add-backslashes-already-escaped
+Tests that already escaped keywords are not double-escaped.
+@end deffn
+
+@deffn Test list-manager-test-restore-newlines-item
+Tests restoring newlines before @code{\item} keyword.
+@end deffn
+
+@node Integration Tests
+@chapter Integration Tests
+
+@cindex integration tests
+@cindex workflow tests
+
+This chapter describes the integration tests.
+
+@section Org to LaTeX Workflow
+
+@deffn Test list-manager-integration-test-org-to-latex-workflow
+Tests the complete workflow of converting plain text to org list,
+then to checkboxes, then back to dash list.
+
+Steps:
+@enumerate
+@item
+Start with plain lines.
+
+@item
+Convert to org list with @code{list-manager-lines-in-region-to-org-list}.
+
+@item
+Convert to checkboxes with
+@code{list-manager-org-convert-list-in-region-to-checkboxes}.
+
+@item
+Convert back to dash list with
+@code{list-manager-convert-org-checklist-to-dash-list}.
+@end enumerate
+@end deffn
+
+@section LaTeX Formatting Recovery Workflow
+
+@deffn Test list-manager-integration-test-latex-formatting-recovery
+Tests recovering LaTeX formatting stripped by 750words.
+
+Steps:
+@enumerate
+@item
+Start with stripped LaTeX (missing backslashes, no newlines).
+
+@item
+Add backslashes with @code{list-manager-add-backslashes}.
+
+@item
+Restore newlines with @code{list-manager-restore-newlines}.
+@end enumerate
+@end deffn
+
+@section Extract and Cut Workflow
+
+@deffn Test list-manager-integration-test-extract-and-cut-workflow
+Tests extracting unchecked items, verifying them, then cutting them.
+
+Steps:
+@enumerate
+@item
+Extract unchecked items to kill ring (non-destructive).
+
+@item
+Verify the extracted items.
+
+@item
+Cut the unchecked items (removes from buffer).
+
+@item
+Verify original buffer contains only checked items.
+@end enumerate
+@end deffn
+
+@section Mixed List Types
+
+@deffn Test list-manager-integration-test-mixed-list-types
+Tests that different list markers (@code{-}, @code{*}, @code{+})
+produce consistent LaTeX output.
+@end deffn
+
+@node Edge Case Tests
+@chapter Edge Case Tests
+
+@cindex edge cases
+@cindex boundary tests
+
+This chapter describes tests for edge cases and boundary conditions.
+
+@section Empty Input Tests
+
+@deffn Test list-manager-test-edge-empty-buffer
+Tests behavior with empty buffer.  Functions should handle gracefully
+without errors.
+@end deffn
+
+@section Single Item Tests
+
+@deffn Test list-manager-test-edge-single-item
+Tests behavior with single-item list.
+@end deffn
+
+@section Special Character Tests
+
+@deffn Test list-manager-test-edge-special-characters
+Tests that special characters (LaTeX @code{$math$}, ampersands) are
+preserved during conversion.
+@end deffn
+
+@deffn Test list-manager-test-edge-unicode
+Tests that unicode characters (accented letters, etc.) are preserved.
+@end deffn
+
+@deffn Test list-manager-test-edge-nested-brackets
+Tests items containing nested brackets.
+@end deffn
+
+@section Size Tests
+
+@deffn Test list-manager-test-edge-very-long-item
+Tests handling of very long list items (500+ characters).
+@end deffn
+
+@deffn Test list-manager-performance-test-large-list
+Tests handling of large lists (1000 items).  Should complete in under
+5 seconds.  Tagged with @code{:slow}.
+@end deffn
+
+@section Checkbox Variation Tests
+
+@deffn Test list-manager-test-edge-checkbox-variations
+Tests various checkbox styles:
+
+@itemize @bullet
+@item
+@code{[ ]} --- Space (unchecked).
+
+@item
+@code{[x]} --- Lowercase x (checked).
+
+@item
+@code{[X]} --- Uppercase X (checked).
+
+@item
+@code{[-]} --- Partially done.
+@end itemize
+@end deffn
+
+@node Writing New Tests
+@chapter Writing New Tests
+
+@cindex writing tests
+@cindex test development
+
+This chapter explains how to add new tests to the suite.
+
+@section Test Structure
+
+Each test follows this structure:
+
+@lisp
+(ert-deftest test-name ()
+  "Documentation string explaining what the test verifies."
+  (with-temp-buffer
+    (insert "input text")
+    ;; Perform operations
+    (function-under-test (point-min) (point-max))
+    ;; Verify results
+    (should (string-match-p "expected" (buffer-string)))))
+@end lisp
+
+@section Helper Macros
+
+The test file provides helper macros:
+
+@defmac list-manager-test-with-temp-buffer initial-content &rest body
+Execute @var{body} in a temporary buffer with @var{initial-content}.
+Returns the buffer contents after executing @var{body}.
+@end defmac
+
+@defmac list-manager-test-with-region initial-content &rest body
+Execute @var{body} in a temporary buffer with @var{initial-content}
+and the entire buffer selected as the active region.
+@end defmac
+
+Example usage:
+
+@lisp
+(ert-deftest my-test ()
+  "Test my function."
+  (let ((result (list-manager-test-with-region "- item"
+                  (my-function))))
+    (should (string-match-p "expected" result))))
+@end lisp
+
+@section Test Naming Conventions
+
+Follow these naming conventions:
+
+@table @code
+@item list-manager-test-@var{function}-@var{variant}
+Unit tests for specific functions.
+
+@item list-manager-integration-test-@var{workflow}
+Integration tests for workflows.
+
+@item list-manager-test-edge-@var{case}
+Edge case tests.
+
+@item list-manager-performance-test-@var{scenario}
+Performance tests.
+
+@item list-manager-regression-test-@var{issue}
+Regression tests for specific bugs.
+@end table
+
+@section Common Assertions
+
+Use these ERT assertion macros:
+
+@table @code
+@item (should @var{form})
+Assert that @var{form} evaluates to non-nil.
+
+@item (should-not @var{form})
+Assert that @var{form} evaluates to nil.
+
+@item (should-error @var{form})
+Assert that @var{form} signals an error.
+
+@item (should (string-match-p @var{pattern} @var{string}))
+Assert that @var{string} matches @var{pattern}.
+
+@item (should (string= @var{expected} @var{actual}))
+Assert exact string equality.
+@end table
+
+@section Running New Tests
+
+After adding a test, run it individually to verify:
+
+@example
+M-x ert RET my-new-test RET
+@end example
+
+Then run the full suite to ensure no regressions:
+
+@example
+M-x ert RET t RET
+@end example
+
+@node Index
+@unnumbered Index
+
+@printindex cp
+@printindex fn
+
+@bye
