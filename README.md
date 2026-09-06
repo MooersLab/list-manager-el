@@ -126,13 +126,11 @@ Before:
 After `C-c x i`:
 
 ```latex
-#+BEGIN_EXPORT latex
 \begin{itemize}
     \item Apple
     \item Banana
     \item Cherry
 \end{itemize}
-#+END_EXPORT
 ```
 
 ## Commands and key bindings
