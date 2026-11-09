@@ -31,7 +31,7 @@
 ;;
 ;; - org-mode dash, plus, and asterisk lists
 ;; - org-mode checklists (- [ ] / - [X])
-;; - org-mode TODO/DONE headlines
+;; - org-mode TODO/DONE headlines at levels one through four
 ;; - numbered lists
 ;; - LaTeX \item lists and complete itemize/enumerate environments
 ;; - plain lines and comma-separated values
@@ -672,6 +672,182 @@ Example output:
       ;; Second pass: convert unchecked items to TODO
       (while (re-search-forward "^\\s-*-\\s-+\\[ \\]\\s-+\\(.*\\)$" nil t)
         (replace-match "* TODO \\1" t)))))
+
+
+;;; ============================================================
+;;; Lines to TODO Headlines and Org Checklists
+;;; ============================================================
+
+(defun list-manager--parse-list-line (line)
+  "Split LINE into its indentation, completion state, and text.
+Return a list (INDENT DONE CONTENT).  INDENT is the leading
+whitespace.  DONE is non-nil when LINE carries a checked box
+\(- [X]) or a DONE headline keyword.  CONTENT is the text with any
+leading list marker, headline stars, TODO/DONE keyword, and
+checkbox removed.  The recognized list markers are -, +, *, and
+numbers followed by a period or a closing parenthesis."
+  (let ((indent "")
+        (done nil)
+        (content line))
+    (when (string-match "\\`[ \t]*" content)
+      (setq indent (match-string 0 content)
+            content (substring content (match-end 0))))
+    (cond
+     ;; Org headline: stars at column 0 with an optional TODO/DONE keyword.
+     ((and (string-empty-p indent)
+           (string-match "\\`\\*+[ \t]+\\(?:\\(TODO\\|DONE\\)\\(?:[ \t]+\\|\\'\\)\\)?"
+                         content))
+      (setq done (equal (match-string 1 content) "DONE")
+            content (substring content (match-end 0))))
+     ;; Plain list marker.
+     ((string-match "\\`\\(?:[-+*]\\|[0-9]+[.)]\\)[ \t]+" content)
+      (setq content (substring content (match-end 0)))))
+    ;; Checkbox.
+    (when (string-match "\\`\\[\\([ xX-]\\)\\][ \t]*" content)
+      (setq done (or done (member (match-string 1 content) '("x" "X")))
+            content (substring content (match-end 0))))
+    (list indent (and done t) (string-trim-right content))))
+
+(defun list-manager--region-or-line ()
+  "Return the active region as (BEG END), else the current line."
+  (if (use-region-p)
+      (list (region-beginning) (region-end))
+    (list (line-beginning-position) (line-end-position))))
+
+(defun list-manager--map-region-lines (beg end fn)
+  "Replace each line between BEG and END with the result of FN.
+FN receives the line text and returns its replacement.  Blank
+lines are passed through unchanged.  A region that ends at the
+start of a line does not touch that line.  Return the number of
+non-blank lines that FN converted."
+  (let* ((text (buffer-substring-no-properties beg end))
+         (lines (split-string text "\n"))
+         (count 0)
+         (result
+          (mapcar (lambda (line)
+                    (if (string-match-p "\\`[ \t]*\\'" line)
+                        line
+                      (setq count (1+ count))
+                      (funcall fn line)))
+                  lines)))
+    (save-excursion
+      (goto-char beg)
+      (delete-region beg end)
+      (insert (string-join result "\n")))
+    count))
+
+(defun list-manager-lines-to-todos (beg end level)
+  "Convert each line between BEG and END to a TODO headline at LEVEL.
+LEVEL is the number of leading stars.  Blank lines are kept.
+Existing list markers, numbers, checkboxes, headline stars, and
+TODO/DONE keywords are removed first, so a mixed list converts
+cleanly and existing headlines are moved to the new level.
+Checked items and DONE headlines become DONE headlines.
+
+Called interactively, the region is used if active, otherwise the
+current line.  A numeric prefix argument sets LEVEL; the default
+is 1."
+  (interactive (append (list-manager--region-or-line)
+                       (list (prefix-numeric-value current-prefix-arg))))
+  (unless (and (integerp level) (> level 0))
+    (user-error "LEVEL must be a positive integer, not %S" level))
+  (let* ((stars (make-string level ?*))
+         (count
+          (list-manager--map-region-lines
+           beg end
+           (lambda (line)
+             (pcase-let ((`(,_indent ,done ,content)
+                          (list-manager--parse-list-line line)))
+               (if (string-empty-p content)
+                   ""
+                 (format "%s %s %s" stars (if done "DONE" "TODO") content)))))))
+    (when (called-interactively-p 'interactive)
+      (message "Converted %d line(s) to level-%d TODO headlines" count level))
+    count))
+
+(defun list-manager-lines-to-first-order-todos (beg end)
+  "Convert each line between BEG and END to a first-order TODO headline.
+
+Example input:
+  Buy groceries
+  - Call the doctor
+  - [X] Write report
+
+Example output:
+  * TODO Buy groceries
+  * TODO Call the doctor
+  * DONE Write report
+
+The region is used if active, otherwise the current line."
+  (interactive (list-manager--region-or-line))
+  (list-manager-lines-to-todos beg end 1))
+
+(defun list-manager-lines-to-second-order-todos (beg end)
+  "Convert each line between BEG and END to a second-order TODO headline.
+Each non-blank line becomes \"** TODO line\".  See
+`list-manager-lines-to-todos' for how markers are handled.
+The region is used if active, otherwise the current line."
+  (interactive (list-manager--region-or-line))
+  (list-manager-lines-to-todos beg end 2))
+
+(defun list-manager-lines-to-third-order-todos (beg end)
+  "Convert each line between BEG and END to a third-order TODO headline.
+Each non-blank line becomes \"*** TODO line\".  See
+`list-manager-lines-to-todos' for how markers are handled.
+The region is used if active, otherwise the current line."
+  (interactive (list-manager--region-or-line))
+  (list-manager-lines-to-todos beg end 3))
+
+(defun list-manager-lines-to-fourth-order-todos (beg end)
+  "Convert each line between BEG and END to a fourth-order TODO headline.
+Each non-blank line becomes \"**** TODO line\".  See
+`list-manager-lines-to-todos' for how markers are handled.
+The region is used if active, otherwise the current line."
+  (interactive (list-manager--region-or-line))
+  (list-manager-lines-to-todos beg end 4))
+
+(defun list-manager-lines-to-org-checklist (beg end marker)
+  "Convert each line between BEG and END to a checklist item using MARKER.
+MARKER is one of the strings \"-\", \"+\", or \"*\".  Blank lines
+and indentation are kept.  Existing list markers, numbers, headline
+stars, and TODO/DONE keywords are replaced.  An existing checked box
+or DONE keyword yields a checked item; all other lines get an
+unchecked box.
+
+Org reads a line that starts with \"* \" at column 0 as a headline,
+so with MARKER \"*\" an unindented item is given one leading space.
+
+Example input with MARKER \"+\":
+  Buy groceries
+  - [X] Write report
+
+Example output:
+  + [ ] Buy groceries
+  + [X] Write report
+
+Called interactively, prompt for MARKER and use the region if
+active, otherwise the current line."
+  (interactive
+   (append (list-manager--region-or-line)
+           (list (completing-read "Marker (-, +, *): "
+                                  '("-" "+" "*") nil t nil nil "-"))))
+  (unless (member marker '("-" "+" "*"))
+    (user-error "MARKER must be \"-\", \"+\", or \"*\", not %S" marker))
+  (let ((count
+         (list-manager--map-region-lines
+          beg end
+          (lambda (line)
+            (pcase-let ((`(,indent ,done ,content)
+                         (list-manager--parse-list-line line)))
+              (when (and (equal marker "*") (string-empty-p indent))
+                (setq indent " "))
+              (if (string-empty-p content)
+                  ""
+                (format "%s%s [%s] %s" indent marker (if done "X" " ")
+                        content)))))))
+    (when (called-interactively-p 'interactive)
+      (message "Converted %d line(s) to checklist items" count))
+    count))
 
 
 ;;; ============================================================
@@ -1338,6 +1514,12 @@ so they do not trigger a spurious line break."
     ;; To TODO headline conversions
     (define-key map (kbd "T -") 'list-manager-convert-dash-list-to-todo-headlines)
     (define-key map (kbd "T [") 'list-manager-convert-checklist-to-todo-headlines)
+    ;; Lines to TODO headlines and checklists
+    (define-key map (kbd "T 1") 'list-manager-lines-to-first-order-todos)
+    (define-key map (kbd "T 2") 'list-manager-lines-to-second-order-todos)
+    (define-key map (kbd "T 3") 'list-manager-lines-to-third-order-todos)
+    (define-key map (kbd "T 4") 'list-manager-lines-to-fourth-order-todos)
+    (define-key map (kbd "M") 'list-manager-lines-to-org-checklist)
     ;; LaTeX environment operations
     (define-key map (kbd "I") 'list-manager-latex-region-to-itemized-list)
     (define-key map (kbd ",") 'list-manager-latex-convert-csv-to-itemized-list)
@@ -1356,7 +1538,7 @@ so they do not trigger a spurious line break."
   "Keymap for List Manager commands.
 Bound to the `C-c x' prefix by default.")
 
-(defun mooerslab/delete-blank-lines-in-region (beg end)
+(defun list-manager/delete-blank-lines-in-region (beg end)
   "Delete blank lines (empty or whitespace-only) in the region BEG..END."
   (interactive "r")
   (flush-lines "^[[:space:]]*$" beg end))

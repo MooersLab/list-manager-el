@@ -334,6 +334,78 @@ Convert lines in the region to an org-mode list with the specified
 interactively.
 @end deffn
 
+@section Converting Lines to TODO Headlines
+
+@cindex lines to TODO headlines
+@cindex TODO headline levels
+
+@deffn Command list-manager-lines-to-first-order-todos beg end
+@findex list-manager-lines-to-first-order-todos
+Convert each non-blank line in the region to a level-one @code{TODO}
+headline (@code{* TODO}).  Without an active region, the current line
+is converted.
+@end deffn
+
+@deffn Command list-manager-lines-to-second-order-todos beg end
+@findex list-manager-lines-to-second-order-todos
+Convert each line to a level-two headline (@code{** TODO}).
+@end deffn
+
+@deffn Command list-manager-lines-to-third-order-todos beg end
+@findex list-manager-lines-to-third-order-todos
+Convert each line to a level-three headline (@code{*** TODO}).
+@end deffn
+
+@deffn Command list-manager-lines-to-fourth-order-todos beg end
+@findex list-manager-lines-to-fourth-order-todos
+Convert each line to a level-four headline (@code{**** TODO}).
+@end deffn
+
+@deffn Command list-manager-lines-to-todos beg end level
+@findex list-manager-lines-to-todos
+The general form of the four commands above.  @var{level} sets the
+number of stars.  Interactively, a numeric prefix argument gives the
+level, and the default is one.
+@end deffn
+
+All five commands treat each line the same way.  Leading indentation,
+list markers (@code{-}, @code{+}, @code{*}, @code{1.}, @code{1)}),
+checkboxes, headline stars, and @code{TODO} or @code{DONE} keywords are
+removed before the new headline is built.  A checked box or a
+@code{DONE} keyword gives a @code{DONE} headline.  Blank lines are kept.
+Running a command on existing headlines moves them to the new level.
+
+@example
+Draft the methods section
+- Rerun the refinement
+- [X] Upload the data to the PDB
+@end example
+
+@noindent
+becomes, after @kbd{C-c x T 2},
+
+@example
+** TODO Draft the methods section
+** TODO Rerun the refinement
+** DONE Upload the data to the PDB
+@end example
+
+@section Converting Lines to a Checklist with a Chosen Marker
+
+@deffn Command list-manager-lines-to-org-checklist beg end marker
+@findex list-manager-lines-to-org-checklist
+Convert each non-blank line in the region to an org checklist item that
+starts with @var{marker}, which is @code{"-"}, @code{"+"}, or
+@code{"*"}.  Interactively, the command prompts for the marker.
+Indentation and blank lines are kept.  Existing markers, numbers,
+headline stars, and @code{TODO} or @code{DONE} keywords are replaced.
+A checked box or a @code{DONE} keyword gives a checked item.
+
+Org reads a line that starts with @samp{* } at column 0 as a headline.
+With the @code{"*"} marker, unindented items therefore get one leading
+space so that org still reads them as list items.
+@end deffn
+
 @section Unordered to Ordered Lists
 
 @deffn Command list-manager-org-convert-unordered-to-ordered-list start end
@@ -895,6 +967,21 @@ List Manager uses the prefix @kbd{C-c x} for all its key bindings.
 
 @item C-c x T [
 @code{list-manager-convert-checklist-to-todo-headlines}
+
+@item C-c x T 1
+@code{list-manager-lines-to-first-order-todos}
+
+@item C-c x T 2
+@code{list-manager-lines-to-second-order-todos}
+
+@item C-c x T 3
+@code{list-manager-lines-to-third-order-todos}
+
+@item C-c x T 4
+@code{list-manager-lines-to-fourth-order-todos}
+
+@item C-c x M
+@code{list-manager-lines-to-org-checklist}
 @end table
 
 @section LaTeX Environment Operations
@@ -1042,6 +1129,24 @@ Dash list to TODO headlines.
 
 @item list-manager-convert-checklist-to-todo-headlines
 Checklist to TODO/DONE headlines.
+
+@item list-manager-lines-to-todos
+Lines to TODO headlines at a given level.
+
+@item list-manager-lines-to-first-order-todos
+Lines to @code{* TODO} headlines.
+
+@item list-manager-lines-to-second-order-todos
+Lines to @code{** TODO} headlines.
+
+@item list-manager-lines-to-third-order-todos
+Lines to @code{*** TODO} headlines.
+
+@item list-manager-lines-to-fourth-order-todos
+Lines to @code{**** TODO} headlines.
+
+@item list-manager-lines-to-org-checklist
+Lines to a checklist with a @code{-}, @code{+}, or @code{*} marker.
 
 @item list-manager-convert-todo-headlines-to-dash-list
 TODO headlines to dash list.

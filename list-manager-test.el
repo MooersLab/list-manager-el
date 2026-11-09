@@ -1510,6 +1510,190 @@ old list- names, so it should not error."
     (should (string-match-p "\n\\\\item Second" result))))
 
 ;;; ============================================================================
+;;; Unit Tests: Lines to TODO Headlines at Levels One to Four
+;;; ============================================================================
+
+(ert-deftest list-manager-test-lines-to-first-order-todos ()
+  "Test converting plain lines to level-one TODO headlines."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+Call mom
+"
+                   (list-manager-lines-to-first-order-todos (point-min) (point-max)))
+                 "* TODO Buy milk
+* TODO Call mom
+")))
+
+(ert-deftest list-manager-test-lines-to-second-order-todos ()
+  "Test converting plain lines to level-two TODO headlines."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+Call mom"
+                   (list-manager-lines-to-second-order-todos (point-min) (point-max)))
+                 "** TODO Buy milk
+** TODO Call mom")))
+
+(ert-deftest list-manager-test-lines-to-third-order-todos ()
+  "Test converting plain lines to level-three TODO headlines."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk"
+                   (list-manager-lines-to-third-order-todos (point-min) (point-max)))
+                 "*** TODO Buy milk")))
+
+(ert-deftest list-manager-test-lines-to-fourth-order-todos ()
+  "Test converting plain lines to level-four TODO headlines."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+Call mom"
+                   (list-manager-lines-to-fourth-order-todos (point-min) (point-max)))
+                 "**** TODO Buy milk
+**** TODO Call mom")))
+
+(ert-deftest list-manager-test-lines-to-todos-strips-markers ()
+  "Test that list markers, numbers, and indentation are removed."
+  (should (equal (list-manager-test-with-temp-buffer "- Dash item
++ Plus item
+  * Star item
+1. Numbered item
+2) Paren item"
+                   (list-manager-lines-to-second-order-todos (point-min) (point-max)))
+                 "** TODO Dash item
+** TODO Plus item
+** TODO Star item
+** TODO Numbered item
+** TODO Paren item")))
+
+(ert-deftest list-manager-test-lines-to-todos-checkbox-state ()
+  "Test that checked boxes become DONE and unchecked boxes become TODO."
+  (should (equal (list-manager-test-with-temp-buffer "- [ ] Open task
+- [X] Finished task
+- [x] Also finished"
+                   (list-manager-lines-to-first-order-todos (point-min) (point-max)))
+                 "* TODO Open task
+* DONE Finished task
+* DONE Also finished")))
+
+(ert-deftest list-manager-test-lines-to-todos-relevels-headlines ()
+  "Test that existing headlines move to the new level and keep DONE."
+  (should (equal (list-manager-test-with-temp-buffer "* TODO Task A
+** DONE Task B
+*** Plain heading"
+                   (list-manager-lines-to-third-order-todos (point-min) (point-max)))
+                 "*** TODO Task A
+*** DONE Task B
+*** TODO Plain heading")))
+
+(ert-deftest list-manager-test-lines-to-todos-keeps-blank-lines ()
+  "Test that blank lines are preserved and not turned into headlines."
+  (should (equal (list-manager-test-with-temp-buffer "One
+
+Two"
+                   (list-manager-lines-to-first-order-todos (point-min) (point-max)))
+                 "* TODO One
+
+* TODO Two")))
+
+(ert-deftest list-manager-test-lines-to-todos-region-only ()
+  "Test that a region ending at a line start leaves the next line alone."
+  (should (equal (with-temp-buffer
+                   (insert "One\nTwo\nThree\n")
+                   (list-manager-lines-to-first-order-todos
+                    (point-min)
+                    (progn (goto-char (point-min)) (forward-line 2) (point)))
+                   (buffer-string))
+                 "* TODO One\n* TODO Two\nThree\n")))
+
+(ert-deftest list-manager-test-lines-to-todos-idempotent ()
+  "Test that converting twice gives the same result as converting once."
+  (let* ((once (list-manager-test-with-temp-buffer "Alpha\nBeta"
+                 (list-manager-lines-to-first-order-todos (point-min) (point-max))))
+         (twice (list-manager-test-with-temp-buffer once
+                  (list-manager-lines-to-first-order-todos (point-min) (point-max)))))
+    (should (equal once twice))))
+
+(ert-deftest list-manager-test-lines-to-todos-bad-level ()
+  "Test that a non-positive level signals a user error."
+  (should-error (with-temp-buffer
+                  (insert "Line")
+                  (list-manager-lines-to-todos (point-min) (point-max) 0))
+                :type 'user-error))
+
+(ert-deftest list-manager-test-lines-to-todos-current-line ()
+  "Test that the interactive command uses the current line without a region."
+  (should (equal (with-temp-buffer
+                   (insert "First\nSecond\n")
+                   (goto-char (point-min))
+                   (forward-line 1)
+                   (deactivate-mark)
+                   (call-interactively #'list-manager-lines-to-second-order-todos)
+                   (buffer-string))
+                 "First\n** TODO Second\n")))
+
+;;; ============================================================================
+;;; Unit Tests: Lines to Org Checklist with a Chosen Marker
+;;; ============================================================================
+
+(ert-deftest list-manager-test-lines-to-org-checklist-dash ()
+  "Test converting lines to a dash checklist."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+Call mom"
+                   (list-manager-lines-to-org-checklist (point-min) (point-max) "-"))
+                 "- [ ] Buy milk
+- [ ] Call mom")))
+
+(ert-deftest list-manager-test-lines-to-org-checklist-plus ()
+  "Test converting lines to a plus checklist."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+Call mom"
+                   (list-manager-lines-to-org-checklist (point-min) (point-max) "+"))
+                 "+ [ ] Buy milk
++ [ ] Call mom")))
+
+(ert-deftest list-manager-test-lines-to-org-checklist-asterisk ()
+  "Test that unindented asterisk items get one space so org reads a list."
+  (should (equal (list-manager-test-with-temp-buffer "Buy milk
+  Call mom"
+                   (list-manager-lines-to-org-checklist (point-min) (point-max) "*"))
+                 " * [ ] Buy milk
+  * [ ] Call mom")))
+
+(ert-deftest list-manager-test-lines-to-org-checklist-replaces-marker ()
+  "Test that existing markers are replaced and checked state is kept."
+  (should (equal (list-manager-test-with-temp-buffer "- [X] Done item
+- [ ] Open item
+1. Numbered item
+* DONE Finished headline
+* TODO Open headline"
+                   (list-manager-lines-to-org-checklist (point-min) (point-max) "+"))
+                 "+ [X] Done item
++ [ ] Open item
++ [ ] Numbered item
++ [X] Finished headline
++ [ ] Open headline")))
+
+(ert-deftest list-manager-test-lines-to-org-checklist-keeps-indent-and-blanks ()
+  "Test that indentation and blank lines are preserved."
+  (should (equal (list-manager-test-with-temp-buffer "Parent
+
+  - Child"
+                   (list-manager-lines-to-org-checklist (point-min) (point-max) "-"))
+                 "- [ ] Parent
+
+  - [ ] Child")))
+
+(ert-deftest list-manager-test-lines-to-org-checklist-bad-marker ()
+  "Test that an unsupported marker signals a user error."
+  (should-error (with-temp-buffer
+                  (insert "Line")
+                  (list-manager-lines-to-org-checklist (point-min) (point-max) "#"))
+                :type 'user-error))
+
+(ert-deftest list-manager-test-lines-to-todos-then-checklist-round-trip ()
+  "Test that TODO state survives a round trip through a checklist."
+  (let* ((todos (list-manager-test-with-temp-buffer "- [ ] Open\n- [X] Shut"
+                  (list-manager-lines-to-second-order-todos (point-min) (point-max))))
+         (back (list-manager-test-with-temp-buffer todos
+                 (list-manager-lines-to-org-checklist (point-min) (point-max) "-"))))
+    (should (equal todos "** TODO Open\n** DONE Shut"))
+    (should (equal back "- [ ] Open\n- [X] Shut"))))
+
+;;; ============================================================================
 ;;; Performance Tests (Optional)
 ;;; ============================================================================
 

@@ -1,4 +1,4 @@
-![Version](https://img.shields.io/static/v1?label=list-manager&message=1.0.0&color=brightcolor)
+![Version](https://img.shields.io/static/v1?label=list-manager&message=1.1.0&color=brightcolor)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Emacs](https://img.shields.io/badge/Emacs-26.1+-purple.svg)](https://www.gnu.org/software/emacs/)
 
@@ -18,6 +18,8 @@ manuscripts.
   entries or complete `itemize` and `enumerate` environments.
 - Convert freely among org dash lists, org checklists, org TODO
   headlines, and LaTeX items in every direction.
+- Turn plain lines into `TODO` headlines at levels one through four, or
+  into an org checklist with a `-`, `+`, or `*` marker.
 - Extract, copy, or cut the unchecked items from a mixed checklist, in
   either org or LaTeX notation.
 - Carry undone TODOs and unchecked boxes forward to a "Next Week"
@@ -113,6 +115,41 @@ After `C-c x u`, a `*Unchecked Items*` buffer opens with:
 - [ ] Write report
 ```
 
+### Example: lines to second-order TODO headlines
+
+Before:
+
+```
+Draft the methods section
+- Rerun the refinement
+- [X] Upload the data to the PDB
+```
+
+After `C-c x T 2`:
+
+```org
+** TODO Draft the methods section
+** TODO Rerun the refinement
+** DONE Upload the data to the PDB
+```
+
+Existing bullets, numbers, checkboxes, and headline stars are removed
+first. Checked boxes and `DONE` headlines become `DONE` headlines. Use
+`C-c x T 1`, `T 3`, or `T 4` for the other levels. Blank lines are kept.
+
+### Example: lines to a checklist with a chosen marker
+
+After `C-c x M` and answering `+` at the prompt, the same lines become:
+
+```org
++ [ ] Draft the methods section
++ [ ] Rerun the refinement
++ [X] Upload the data to the PDB
+```
+
+Org reads a line that starts with `* ` at column 0 as a headline. With
+the `*` marker, unindented items therefore get one leading space.
+
 ### Example: dash list to a complete itemize environment
 
 Before:
@@ -163,6 +200,7 @@ Every command is bound under the `C-c x` prefix through the
 | Key       | Command                                            |
 |:----------|:---------------------------------------------------|
 | `C-c x m` | `list-manager-lines-in-region-to-org-list`         |
+| `C-c x M` | `list-manager-lines-to-org-checklist`              |
 | `C-c x o` | `list-manager-org-region-to-itemized-list`         |
 | `C-c x #` | `list-manager-org-convert-unordered-to-ordered-list` |
 | `C-c x p` | `list-manager-org-or-latex-add-periods-to-list`    |
@@ -198,6 +236,10 @@ Every command is bound under the `C-c x` prefix through the
 | `C-c x t l` | `list-manager-convert-todo-headlines-to-latex-items` |
 | `C-c x T -` | `list-manager-convert-dash-list-to-todo-headlines` |
 | `C-c x T [` | `list-manager-convert-checklist-to-todo-headlines` |
+| `C-c x T 1` | `list-manager-lines-to-first-order-todos`          |
+| `C-c x T 2` | `list-manager-lines-to-second-order-todos`         |
+| `C-c x T 3` | `list-manager-lines-to-third-order-todos`          |
+| `C-c x T 4` | `list-manager-lines-to-fourth-order-todos`         |
 
 ### LaTeX environment operations
 
@@ -271,7 +313,7 @@ C-h i m list-manager RET
 
 ## Running tests
 
-List Manager includes an ERT suite of 130 tests that covers every public
+List Manager includes an ERT suite of 149 tests that covers every public
 command, several bidirectional round trips, edge cases, and two
 performance checks.
 
@@ -297,7 +339,7 @@ M-x ert RET t RET
 The expected result is:
 
 ```
-Ran 130 tests, 130 results as expected, 0 unexpected
+Ran 149 tests, 149 results as expected, 0 unexpected
 ```
 
 The test suite has its own Info manual, which `make info` also builds.
@@ -334,7 +376,9 @@ the [LICENSE](LICENSE) file for details.
 
 | Version | Changes                                                                                                                                            | Date         |
 |:--------|:---------------------------------------------------------------------------------------------------------------------------------------------------|:-------------|
+| 1.1.0 | Added `list-manager-lines-to-first-order-todos` through `list-manager-lines-to-fourth-order-todos` and `list-manager-lines-to-org-checklist`, with 19 new tests.                    | 2026 November 8 |
 | 1.0.0   | First public release. Fixed broken commands, unified the `list-manager-` prefix, expanded the suite to 130 tests, and added the GitHub scaffolding. | 2026 July 22 |
+
 
 ## Sources of funding
 

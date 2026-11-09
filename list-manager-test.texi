@@ -86,7 +86,7 @@ Provide confidence for MELPA submission.
 
 @section Test Coverage
 
-The test suite contains 130 tests covering:
+The test suite contains 149 tests covering:
 
 @itemize @bullet
 @item
@@ -94,6 +94,10 @@ List conversion functions (numbered, dash, asterisk, plus lists).
 
 @item
 Checklist operations (extract, cut, convert).
+
+@item
+Lines to TODO headlines at levels one through four and to checklists
+with a chosen marker.
 
 @item
 LaTeX environment creation.
@@ -183,7 +187,7 @@ The test was skipped (usually due to missing dependencies).
 Expected output for a successful run:
 
 @example
-Ran 130 tests, 130 results as expected, 0 unexpected
+Ran 149 tests, 149 results as expected, 0 unexpected
 @end example
 
 @node Test Categories
@@ -379,6 +383,84 @@ Tests removing @code{[X]} checkboxes from checked items.
 
 @deffn Test list-manager-test-convert-list-to-checkboxes
 Tests adding checkboxes to dash list items.
+@end deffn
+
+@section Lines to TODO Headlines and Checklist Tests
+
+@deffn Test list-manager-test-lines-to-first-order-todos
+Tests converting plain lines to @code{* TODO} headlines.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-second-order-todos
+Tests converting plain lines to @code{** TODO} headlines.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-third-order-todos
+Tests converting a line to a @code{*** TODO} headline.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-fourth-order-todos
+Tests converting plain lines to @code{**** TODO} headlines.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-strips-markers
+Tests removing dash, plus, asterisk, and numbered markers and indentation.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-checkbox-state
+Tests that checked boxes become @code{DONE} and unchecked boxes become @code{TODO}.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-relevels-headlines
+Tests moving existing headlines to a new level while keeping @code{DONE}.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-keeps-blank-lines
+Tests that blank lines are preserved.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-region-only
+Tests that a region ending at a line start leaves the next line alone.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-idempotent
+Tests that a second conversion changes nothing.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-bad-level
+Tests that a level of zero signals a @code{user-error}.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-current-line
+Tests that the interactive command acts on the current line without a region.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-dash
+Tests a checklist with the @code{-} marker.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-plus
+Tests a checklist with the @code{+} marker.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-asterisk
+Tests that unindented @code{*} items get one leading space.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-replaces-marker
+Tests replacing existing markers and keeping the checked state.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-keeps-indent-and-blanks
+Tests that indentation and blank lines are preserved.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-org-checklist-bad-marker
+Tests that an unsupported marker signals a @code{user-error}.
+@end deffn
+
+@deffn Test list-manager-test-lines-to-todos-then-checklist-round-trip
+Tests that the @code{TODO}/@code{DONE} state survives a round trip through a checklist.
 @end deffn
 
 @section LaTeX Environment Tests
