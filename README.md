@@ -387,8 +387,6 @@ the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- The GNU Emacs and org-mode communities.
-- The ERT regression testing framework.
 - Portions of the original commands were drafted with the assistance of
   Claude.
-# list-manager-el
+
