@@ -1546,8 +1546,15 @@ Bound to the `C-c x' prefix by default.")
 (global-set-key (kbd "C-c C-l") #'list-manager/delete-blank-lines-in-region)
 
 
-;;;###autoload
-(global-set-key (kbd "C-c x") list-manager-map)
+;; Make the keymap usable as a prefix command.  The autoloads file can then
+;; bind the prefix key before this library is loaded.  The earlier form put
+;; an autoload cookie on a `global-set-key' that used the value of
+;; `list-manager-map', which is void until the library is loaded.
+(fset 'list-manager-map list-manager-map)
+
+;;;###autoload (autoload 'list-manager-map "list-manager" nil t 'keymap)
+;;;###autoload (global-set-key (kbd "C-c x") 'list-manager-map)
+(global-set-key (kbd "C-c x") 'list-manager-map)
 
 (provide 'list-manager)
 
